@@ -51,7 +51,10 @@ The workspace is split into isolated bricks under `components/` and executed via
 ## 4. Data Schema & Identity Models
 
 ### Binary Content-Based Identity (File Signature)
-Every ingested asset is uniquely and permanently identified by its raw file SHA-256 hash. This acts as the immutable primary key across the entire life cycle of the file (local, cloud, and DB). If the content of the file doesn't change, its identity remains identical.
+Every ingested asset is uniquely and permanently identified by its raw
+file SHA-256 hash. This acts as the immutable primary key across the
+entire life cycle of the file (local, cloud, and DB). If the content
+of the file doesn't change, its identity remains identical.
 
 ---
 
