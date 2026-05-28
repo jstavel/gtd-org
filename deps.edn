@@ -1,6 +1,10 @@
 {:aliases  {:dev {:extra-paths ["development/src"]
 
-                  :extra-deps {org.clojure/clojure {:mvn/version "1.12.2"}}}
+                  :extra-deps {org.clojure/clojure {:mvn/version "1.12.2"}
+                               jstavel/fp {:local/root "components/fp"}
+                               jstavel/downloads-cleaner {:local/root "components/downloads-cleaner/"}
+                               }
+                  }
 
             :test {:extra-paths []}
 
