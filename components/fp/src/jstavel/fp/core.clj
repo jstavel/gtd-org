@@ -24,15 +24,12 @@
   Returns a lazy sequence of java.nio.file.Path objects."
   [^Path root-dir]
   (when (Files/isDirectory root-dir (into-array LinkOption []))
-    (let [file-filter (fn [^Path path]
+    (let [file-filter (filter (fn [^Path path]
                         (and (Files/isRegularFile path (into-array LinkOption []))
-                             (contains? audio-extensions (get-extension path))))
+                             (contains? audio-extensions (get-extension path)))))
           path-stream ^Stream (Files/walk root-dir Integer/MAX_VALUE (into-array FileVisitOption []))]
-      (->> path-stream
-           (.iterator)
-           iterator-seq
-           (filter file-filter)
-           lazy-seq))))
+      (eduction file-filter (iterator-seq (.iterator path-stream))))))
+
 
 (defn sha256-file
   "Computes the SHA-256 hash of a given file.

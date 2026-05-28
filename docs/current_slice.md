@@ -52,7 +52,7 @@ them incrementally."
 - [x] `components/fp/src/jstavel/fp/interface.clj` contains public functions `list-audio-files` and `sha256-file`.
 - [x] All file path manipulations within `interface.clj` exclusively use `java.nio.file.Path` objects.
 - [x] `list-audio-files` correctly identifies and returns only `.mp3`, `.wav`, and `.m4a` files (case-insensitive) as `java.nio.file.Path` objects.
-- [ ] `sha256-file` correctly computes and returns the hexadecimal SHA-256 hash of a given `java.nio.file.Path`.
+- [x] `sha256-file` correctly computes and returns the hexadecimal SHA-256 hash of a given `java.nio.file.Path`.
 - [x] `components/fp/test/jstavel/fp/interface_test.clj` includes thorough unit tests for both functions covering specified scenarios and edge cases.
-- [ ] All tests pass.
+- [x] All tests pass.
 - [x] The `dummy-test` in `components/fp/test/jstavel/fp/interface_test.clj` has been removed.
