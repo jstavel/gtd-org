@@ -24,7 +24,7 @@ The system is split into multiple independent sub-projects:
 - **Consequence:** The developer (and AI) must completely finish, test, and mark the active slice as done before moving to any other task on the Kanban board.
 
 ### ADR 0003: Immutable Native Paths
-- **Context:** Working with file paths as raw strings frequently breaks in unix environments when folders or filenames contain spaces (e.g., `My RedHat`, `lenovo-P1-zbytky`).
+- **Context:** Working with file paths as raw strings frequently breaks in unix environments when folders or filenames contain spaces (e.g., `My Personal`,).
 - **Decision:** All internal Clojure/Babashka components must pass files as `java.io.File` or `java.nio.file.Path` objects. Turning paths into pure strings is strictly forbidden except at the very edge of I/O output.
 - **Consequence:** Eliminates shell-expansion errors and `xargs` splitting issues across the entire ingest pipeline.
 

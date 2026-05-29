@@ -1,25 +1,37 @@
 #+TITLE: gtd-org Project Kanban
 
 * Backlog
-** TODO [M1/Slice 2] GCP GCS Bucket Initialization & TTL Invariant
-** TODO [M1/Slice 3] Cloud Sync Automation & State Tracking
+** NEXT [M1/Slice 3] Cloud Sync Automation & State Tracking
+:LOGBOOK:
+- State "NEXT"       from "TODO"       [2026-05-28 Thu 21:14]
+:END:
 ** TODO [M2/Slice 1] Gemini API Audio Ingestion via Babashka
 ** TODO [M2/Slice 2] Native AI Ingestion & Structuring Pipeline
 ** TODO [M2/Slice 3] Ingestion State Ledger & Deduplication Check
 ** TODO [M3/Slice 1] Markdown/Org-mode Payload Formatter
 ** TODO [M3/Slice 2] Emacs Org-Agenda Automation Protocol
 ** TODO [M3/Slice 3] Automated Staging Cleansing & Verification
-
 * In Progress
-** 🚧 [M1/Slice 1] Local Ingest and File Identity
+* On Review
+* Done
+** DONE [M1/Slice 2] GCP GCS Bucket Initialization & TTL Invariant
+CLOSED: [2026-05-29 Fri 20:53]
+:LOGBOOK:
+- State "WIP"        from "NEXT"       [2026-05-28 Thu 21:14]
+- State "NEXT"       from "TODO"       [2026-05-28 Thu 21:14]
+:END:
+
+** DONE [M1/Slice 1] Local Ingest and File Identity
+CLOSED: [2026-05-28 Thu 21:13]
    :PROPERTIES:
    :WIP_LIMIT: 1
    :ASSIGNED: Aider & jstavel
    :STARTED: <2026-05-27 Wed>
    :END:
+   :LOGBOOK:
+   - State "WIP"        from "NEXT"       [2026-05-28 Thu 21:13]
+   - State "NEXT"       from "TODO"       [2026-05-28 Thu 21:13]
+   :END:
    - State: Active implementation of the =fp= component.
    - Goal: Scan directories for audio, compute SHA-256 without string path breaking.
 
-* On Review
-
-* Done
