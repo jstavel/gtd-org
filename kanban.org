@@ -1,10 +1,16 @@
 #+TITLE: gtd-org Project Kanban
 
 * Backlog
-** NEXT [M1/Slice 3] Cloud Sync Automation & State Tracking
-:LOGBOOK:
-- State "NEXT"       from "TODO"       [2026-05-28 Thu 21:14]
-:END:
+
+** TODO migrace bucket z EUROPE-CENTRAL2 na EUROPE-WEST3
+- be careful - it will destroy application content and tfstate
+  of the infrastructure.
+- prepare mirror infrastructure and perform migration
+
+** TODO [M1/Slice 3] Cloud Sync Automation & State Tracking
+    :LOGBOOK:
+    - State "NEXT"       from "TODO"       [2026-05-28 Thu 21:14]
+    :END:
 ** TODO [M2/Slice 1] Gemini API Audio Ingestion via Babashka
 ** TODO [M2/Slice 2] Native AI Ingestion & Structuring Pipeline
 ** TODO [M2/Slice 3] Ingestion State Ledger & Deduplication Check
@@ -12,6 +18,26 @@
 ** TODO [M3/Slice 2] Emacs Org-Agenda Automation Protocol
 ** TODO [M3/Slice 3] Automated Staging Cleansing & Verification
 * In Progress
+** WIP [H0/Runway] Implement Staging Worker (org-staging component)
+   :PROPERTIES:
+   :CATEGORY: ingest
+   :DEPENDS_ON: DONE [M1/Slice 1] Local Ingest and File Identity
+   :REUSES: fp component
+   :END:
+   - **Goal:** Orchestrate the initial capture and preparation of raw assets from local sources (~~/Downloads~) into a structured staging area (`assets/objects/UUID/raw/`).
+   - **Reconciliation Logic:** Scan ~~/Downloads~, calculate SHA-256 (using `fp`), check against `assets/objects/` and `staging.org`.
+   - **Action:** If known, ignore. If unknown, create `TODO` in `staging.org` with metadata.
+   - **Implementation Steps (from Architect Spec):**
+     - [ ] Implement file/directory detection and hashing (reusing `fp` component).
+     - [ ] Implement indexer for `assets/objects/` (existence check).
+     - [ ] Implement Org-mode parser for `staging.org` (property manipulation).
+     - [ ] Implement core loop: Detect -> Hash -> Check (assets/staging) -> Log/Update.
+   :LOGBOOK:
+   - State "WIP"        from "NEXT"       [2026-06-01 Mon 13:53]
+   - State "NEXT"       from "TODO"       [2026-06-01 Mon 13:53]
+   - [2026-06-03 Wed] Created this task representing the main M1 implementation.
+   :END:
+
 * On Review
 * Done
 ** DONE [M1/Slice 2] GCP GCS Bucket Initialization & TTL Invariant

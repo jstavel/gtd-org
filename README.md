@@ -45,7 +45,7 @@ To maintain strict visual alignment across the entire ecosystem (from terminal t
 
 ### 🏁 Milestone 1 (M1): H0: Runway Distill Pipeline
 - [✅] **Slice 1:** Local Ingest & Binary Identity (Component `fp`) `[DONE]`
-- [ ] **Slice 2:** GCP GCS Bucket Initialization & TTL Invariant
+- [✅] **Slice 2:** GCP GCS Bucket Initialization & TTL Invariant `[DONE]`
 - [ ] **Slice 3:** Cloud Sync Automation & State Tracking
 
 ### 🌀 Milestone 2 (M2): H1: Transcription & State
