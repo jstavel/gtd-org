@@ -1,0 +1,8 @@
+{:deps {org.clojure/clojure {:mvn/version "1.12.2"}
+        babashka/process {:mvn/version "0.6.25"}
+        com.taoensso/timbre {:mvn/version "6.8.0"}
+        metosin/malli {:mvn/version "0.17.0"}}
+ :paths ["src" "resources"]
+ :aliases {:dev {:extra-paths ["test"]}
+           :test {:extra-paths ["test"]
+                  :main-opts ["-m" "clojure.test" "jstavel.org-staging.interface-test"]}}}
