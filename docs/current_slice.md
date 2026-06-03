@@ -81,12 +81,12 @@ Implement the main `scan-and-stage-downloads` function that:
     - Verify that `staging.org` is correctly updated and that `Downloads` content is untouched.
 
 ## Definition of Done (DoD)
-- [ ] `read-staging-org` and `append-to-staging-org` helper functions are implemented and pass their unit tests.
-- [ ] `scan-and-stage-downloads` function is implemented in `core.clj` and exposed in `interface.clj`.
-- [ ] The worker correctly identifies `.mp3` files in the specified `downloads-path` and ignores other file types.
-- [ ] The worker accurately determines if a file has been ingested (by checking the **local** `assets/objects/` using `build-asset-index`).
-- [ ] The worker accurately determines if a file is already pending in the **local** `staging.org` (using `read-staging-org`).
-- [ ] For each *new and not yet staged* `.mp3` file, a `TODO` entry with correct `:HASH:` and `:SOURCE:` properties is appended to the **local** `staging.org`.
-- [ ] The worker strictly adheres to the "read-only" invariant for `downloads-path` (no move, delete, or modify operations).
-- [ ] All unit tests for `scan-and-stage-downloads` cover empty, new, existing (in assets), existing (in staging), mixed, and ignored file type scenarios, and pass.
-- [ ] The behavior of the `scan-and-stage-downloads` utility is proven to be idempotent.
+- [] `read-staging-org` and `append-to-staging-org` helper functions are implemented and pass their unit tests.
+- [] `scan-and-stage-downloads` function is implemented in `core.clj` and exposed in `interface.clj`.
+- [] The worker correctly identifies `.mp3` files in the specified `downloads-path` and ignores other file types.
+- [] The worker accurately determines if a file has been ingested (by checking the **local** `assets/objects/` using `build-asset-index`).
+- [] The worker accurately determines if a file is already pending in the **local** `staging.org` (using `read-staging-org`).
+- [] For each *new and not yet staged* `.mp3` file, a `TODO` entry with correct `:HASH:` and `:SOURCE:` properties is appended to the **local** `staging.org`.
+- [] The worker strictly adheres to the "read-only" invariant for `downloads-path` (no move, delete, or modify operations).
+- [] All unit tests for `scan-and-stage-downloads` cover empty, new, existing (in assets), existing (in staging), mixed, and ignored file type scenarios, and pass.
+- [] The behavior of the `scan-and-stage-downloads` utility is proven to be idempotent.
