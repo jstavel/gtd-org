@@ -1,0 +1,11 @@
+{
+ :deps {:aliases [:dev]}
+ :nrepl
+ {:middleware [refactor-nrepl.middleware/wrap-refactor]}
+ :dependencies [[refactor-nrepl/refactor-nrepl "3.13.0"]]
+ :builds
+ {:downloader {:target :node-script
+               :main jstavel.plaud-downloader.core/-main
+               :output-to "out/plaud_downloader.js"
+               :compiler-options {:optimizations :none}
+               :devtools {:repl true}}}}

@@ -4,7 +4,10 @@
 `gtd-org` is a distributed, AI-compatible personal operating system designed to implement David Allen's GTD (Getting Things Done) framework combined with a Second Brain methodology. The ecosystem is built around a unified, immutable ledger of assets, heavily relying on functional programming paradigms.
 
 The system is split into multiple independent sub-projects:
-1. **Ingest Sub-project (Babashka Core: org-staging):** Orchestrates the initial capture and preparation of raw assets (e.g., audio files) from local sources into a structured staging area, ensuring cryptographic identity and readiness for cloud processing.
+1. **Ingest Sub-project (Babashka Core: org-staging):** Orchestrates
+   the initial capture and preparation of raw assets (e.g., audio
+   files) from local sources into a structured staging area, ensuring
+   cryptographic identity and readiness for cloud processing.
 2. **Distill & Structure Sub-project:** Ingestion of audio into Gemini API (`gemini-2.5-flash`) for direct native transcription, structuring, and metadata extraction.
 3. **Reflect & Organize Sub-project (Emacs/Org-mode):** Automated injection into the local Org-agenda, implementing processing and reviewing phases.
 4. **Rich Client Sub-project (Re-frame SPA):** A ClojureScript Single Page Application using `re-frame` to provide a reactive, lightning-fast UI for reviewing the GTD workflow, managing the inbox, and visualizing the Second Brain knowledge graph.
@@ -105,7 +108,7 @@ The `staging-worker` is a Babashka-based automation utility responsible for the 
 | `KIND`     | Filename/Tags  | `Generic`  |
 
 #### References 
-- This specification must be implemented in strict adherence to: [ADR 0005: Asset Storage Invariants](./adr/005-asset-storage-and-ingestion-invariants.md)
+- This specification must be implemented in strict adherence to: [ADR 0008: Asset Storage Architecture and Pipeline Structure](./adr/0008-asset-storage-and-ingestion-invariants.md)
 
 ---
 
@@ -113,3 +116,31 @@ The `staging-worker` is a Babashka-based automation utility responsible for the 
 - **Pipeline 1: Ingest & Staging (M1):** `org-staging` component discovers new items in local staging (e.g., Downloads), calculates SHA-256 hash, and stages them to `assets/objects/UUID/raw/` - when they are accepted.
 - **Pipeline 2: Distill & Transcribe (M2):** Monitoring of `assets/objects/UUID/raw/` for new assets -> Gemini API (`gemini-2.5-flash`) direct audio transcription -> Structured output (e.g., to `assets/objects/UUID/generated/`).
 - **Pipeline 3: Org Integration (M3):** Structured output -> Org-mode agenda injection.
+# System Specification
+
+This document outlines the high-level architecture and workflow of the system.
+
+## Workflow Overview
+
+The core ingestion workflow is defined in `workflow.hcl`. Below is a visual representation of the main stages and their transitions, including the owning actor and a brief description for each stage.
+
+```mermaid
+graph TD
+    init[Stage: Init<br>Owner: user<br>Description: start of the application] --> monitor
+    monitor[Stage: Monitor<br>Owner: watcher<br>Description: Watcher scans the directory and passes files.] --> metadata_enrichment
+    metadata_enrichment[Stage: Metadata Enrichment<br>Owner: metadata_provider<br>Description: Metadata provider enriches data.] --> record_preparation
+    record_preparation[Stage: Record Preparation<br>Owner: watcher<br>Description: Watcher identifies Plaud records and prepares the final structure for orchestration.] --> record_staging
+    record_staging[Stage: Record Staging<br>Owner: orchestrator<br>Description: Orchestrator writes the prepared record into the staging area.]
+```
+
+## Actors and Capabilities
+
+The system involves the following actors, each with specific capabilities:
+
+- **Watcher**: Scans directories, lists files, identifies Plaud records, and prepares records.
+- **Metadata Provider**: Calculates file hashes and extracts metadata.
+- **Orchestrator**: Checks for duplicate records and writes records to the staging area.
+
+## Policy Definitions (Malli Schemas)
+
+As noted in `workflow.hcl`, policies will be implemented as Malli schemas for function inputs, ensuring data validity and type conformance at each step of the workflow.

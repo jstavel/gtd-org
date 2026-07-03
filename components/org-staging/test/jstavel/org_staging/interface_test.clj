@@ -2,45 +2,39 @@
   (:require
    [clojure.test :refer [deftest is use-fixtures testing]]
    [clojure.string :as str]
+   [babashka.fs :as fs]
    [jstavel.org-staging.interface :as org-staging]
-   [jstavel.fp.interface :as fp]
-   )
+   [jstavel.fp.interface :as fp])
   (:import
-   (java.nio.file Files Path Paths LinkOption)
-   (java.nio.file.attribute FileTime FileAttribute)
+   (java.nio.file.attribute FileTime)
    (java.util UUID)))
+
 
 (def ^:private temp-root-dir (atom nil))
 (def ^:private downloads-dir (atom nil))
 (def ^:private assets-objects-root (atom nil))
 (def ^:private staging-org-file (atom nil))
 
-(defn- delete-recursively [^Path path]
-  (when (Files/exists path (into-array LinkOption []))
-    (if (Files/isDirectory path (into-array LinkOption []))
-      (with-open [stream (Files/walk path (into-array java.nio.file.FileVisitOption []))]
-        (doseq [p (->> (iterator-seq (.iterator stream))
-                       (sort (java.util.Comparator/reverseOrder)))]
-          (Files/delete p)))
-      (Files/delete path))))
+(defn- delete-recursively [^java.nio.file.Path path]
+  (fs/delete-tree path))
 
 (defn- create-file [parent-path filename content]
-  (let [^Path file-path (.resolve parent-path filename)]
-    (Files/createDirectories (.getParent file-path) (into-array FileAttribute []))
-    (Files/write file-path (.getBytes content) (into-array java.nio.file.OpenOption []))
-    (Files/setLastModifiedTime file-path (FileTime/fromMillis 0)) ; Ensure consistent modification time
+  (let [file-path (fs/path parent-path filename)]
+    (fs/create-dirs (fs/parent file-path))
+    (fs/write-bytes file-path (.getBytes content))
+    (fs/set-last-modified-time file-path (FileTime/fromMillis 0)) ; Ensure consistent modification time
     file-path))
 
 (defn- create-dir [parent-path dirname]
-  (let [^Path dir-path (.resolve parent-path dirname)]
-    (Files/createDirectories dir-path (into-array FileAttribute []))
+  (let [dir-path (fs/path parent-path dirname)]
+    (fs/create-dirs dir-path)
     dir-path))
 
 (defn- setup-temp-env [f]
-  (let [root (Files/createTempDirectory "gtd-org-test-" (into-array FileAttribute []))]
+  (let [root (fs/create-temp-dir "gtd-org-test-")]
     (reset! temp-root-dir root)
     (reset! downloads-dir (create-dir root "Downloads"))
-    (reset! assets-objects-root (create-dir root (Paths/get "assets" "objects")))
+    (reset! assets-objects-root (create-dir root (fs/path "assets" "objects")))
     (reset! staging-org-file (create-file root "staging.org" ""))
     (f)
     (delete-recursively root)))
@@ -139,13 +133,13 @@
 
 (deftest read-staging-org-non-existent-file-test
   (testing "returns an empty set for a non-existent staging.org"
-    (let [non-existent-path (Paths/get (.toString @temp-root-dir) "non-existent-staging.org")]
+    (let [non-existent-path (fs/path (str @temp-root-dir) "non-existent-staging.org")]
       (is (empty? (org-staging/read-staging-org non-existent-path))))))
 
 (deftest read-staging-org-with-hashes-test
   (testing "extracts hashes from TODO entries"
     (let [content "* TODO Task 1\n:PROPERTIES:\n:HASH: 1234567890123456789012345678901234567890123456789012345678901234\n:END:\n\n* TODO Task 2\n:PROPERTIES:\n:HASH: abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd\n:END:\n* DONE Task 3 (should be ignored)\n:PROPERTIES:\n:HASH: 0000000000000000000000000000000000000000000000000000000000000000\n:END:"
-          _ (Files/write @staging-org-file (.getBytes content) (into-array java.nio.file.OpenOption []))
+          _ (fs/write-bytes @staging-org-file (.getBytes content))
           expected-hashes #{"1234567890123456789012345678901234567890123456789012345678901234"
                             "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"}]
       (is (= expected-hashes (org-staging/read-staging-org @staging-org-file))))))
@@ -153,14 +147,14 @@
 (deftest read-staging-org-with-no-hashes-test
   (testing "ignores entries without a HASH property"
     (let [content "* TODO Task 1\n:PROPERTIES:\n:NO_HASH: value\n:END:\n\n* TODO Task 2\n:PROPERTIES:\n:HASH: 1234567890123456789012345678901234567890123456789012345678901234\n:END:"
-          _ (Files/write @staging-org-file (.getBytes content) (into-array java.nio.file.OpenOption []))
+          _ (fs/write-bytes @staging-org-file (.getBytes content))
           expected-hashes #{"1234567890123456789012345678901234567890123456789012345678901234"}]
       (is (= expected-hashes (org-staging/read-staging-org @staging-org-file))))))
 
 (deftest read-staging-org-malformed-hashes-test
   (testing "ignores malformed HASH properties"
     (let [content "* TODO Task 1\n:PROPERTIES:\n:HASH: not-a-hash\n:END:\n\n* TODO Task 2\n:PROPERTIES:\n:HASH: 1234567890123456789012345678901234567890123456789012345678901234\n:END:"
-          _ (Files/write @staging-org-file (.getBytes content) (into-array java.nio.file.OpenOption []))
+          _ (fs/write-bytes @staging-org-file (.getBytes content))
           expected-hashes #{"1234567890123456789012345678901234567890123456789012345678901234"}]
       (is (= expected-hashes (org-staging/read-staging-org @staging-org-file))))))
 
@@ -170,15 +164,15 @@
   (testing "appends to an empty staging.org file"
     (let [entry "* TODO New Task\n:PROPERTIES:\n:HASH: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n:END:"
           _ (org-staging/append-to-staging-org @staging-org-file entry)]
-      (is (str/includes? (slurp @staging-org-file) entry)))))
+      (is (str/includes? (-> @staging-org-file .toFile slurp) entry)))))
 
 (deftest append-to-staging-org-existing-file-test
   (testing "appends to an existing staging.org file"
     (let [initial-content "* TODO Existing Task\n:PROPERTIES:\n:HASH: 1111111111111111111111111111111111111111111111111111111111111111\n:END:"
           new-entry "* TODO Another Task\n:PROPERTIES:\n:HASH: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n:END:"
-          _ (Files/write @staging-org-file (.getBytes initial-content) (into-array java.nio.file.OpenOption []))
+          _ (fs/write-bytes @staging-org-file (.getBytes initial-content))
           _ (org-staging/append-to-staging-org @staging-org-file new-entry)
-          file-content (slurp @staging-org-file)]
+          file-content (-> @staging-org-file .toFile slurp)]
       (is (str/includes? file-content initial-content))
       (is (str/includes? file-content new-entry)))))
 
@@ -186,9 +180,9 @@
   (testing "ensures a newline before the new entry"
     (let [initial-content "Some existing text without a final newline"
           new-entry "* TODO Another Task\n:PROPERTIES:\n:HASH: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n:END:"
-          _ (Files/write @staging-org-file (.getBytes initial-content) (into-array java.nio.file.OpenOption []))
+          _ (fs/write-bytes @staging-org-file (.getBytes initial-content))
           _ (org-staging/append-to-staging-org @staging-org-file new-entry)
-          file-content (slurp @staging-org-file)]
+          file-content (-> @staging-org-file .toFile slurp)]
       (is (str/includes? file-content (str "\n" new-entry))))))
 
 ;; --- Tests for scan-and-stage-downloads ---
@@ -196,17 +190,17 @@
 (deftest scan-and-stage-downloads-empty-downloads-test
   (testing "staging.org remains empty if Downloads is empty"
     (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
-    (is (str/blank? (slurp @staging-org-file)))))
+    (is (str/blank? (-> @staging-org-file .toFile slurp )))))
 
 (deftest scan-and-stage-downloads-new-mp3-test
   (testing "adds a new mp3 file to staging.org"
     (let [mp3-file (create-file @downloads-dir "audio.mp3" "mp3 content")
           expected-hash (org-staging/deterministic-sha256-path mp3-file)]
       (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
-      (let [content (slurp @staging-org-file)]
+      (let [content (-> @staging-org-file .toFile slurp)]
         (is (str/includes? content "audio.mp3"))
         (is (str/includes? content (str ":HASH: " expected-hash)))
-        (is (str/includes? content (str ":SOURCE: " (.toString mp3-file))))))))
+        (is (str/includes? content (str ":SOURCE: " mp3-file)))))))
 
 (deftest scan-and-stage-downloads-multiple-new-mp3s-test
   (testing "adds multiple new mp3 files to staging.org"
@@ -215,7 +209,7 @@
           hash1 (org-staging/deterministic-sha256-path mp3-file1)
           hash2 (org-staging/deterministic-sha256-path mp3-file2)]
       (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
-      (let [content (slurp @staging-org-file)]
+      (let [content (-> @staging-org-file .toFile slurp)]
         (is (str/includes? content "audio1.mp3"))
         (is (str/includes? content (str ":HASH: " hash1)))
         (is (str/includes? content "audio2.mp3"))
@@ -233,16 +227,16 @@
           raw-dir (create-dir asset-dir "raw")]
       (create-file raw-dir "original.mp3" "ingested content") ;; Same content, same hash
       (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
-      (is (str/blank? (slurp @staging-org-file))))))
+      (is (str/blank? (-> @staging-org-file .toFile slurp ))))))
 
 (deftest scan-and-stage-downloads-already-staged-test
   (testing "does not add files already pending in staging.org (idempotency)"
     (let [mp3-file (create-file @downloads-dir "pending.mp3" "pending content")
           file-hash (org-staging/deterministic-sha256-path mp3-file)
-          initial-entry (str "* TODO pending.mp3\n:PROPERTIES:\n:HASH: " file-hash "\n:SOURCE: " (.toString mp3-file) "\n:END:")]
-      (Files/write @staging-org-file (.getBytes initial-entry) (into-array java.nio.file.OpenOption []))
+          initial-entry (str "* TODO pending.mp3\n:PROPERTIES:\n:HASH: " file-hash "\n:SOURCE: " mp3-file "\n:END:")]
+      (fs/write-bytes @staging-org-file (.getBytes initial-entry))
       (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
-      (let [content (slurp @staging-org-file)]
+      (let [content (-> @staging-org-file .toFile slurp)]
         (is (str/includes? content initial-entry))
         (is (= 1 (count (str/split content #"\* TODO")))) ; Only one TODO entry, no duplicates
         ))))
@@ -266,18 +260,18 @@
         (create-file raw-dir "original.mp3" "ingested content"))
 
       ;; Setup pending file in staging.org
-      (let [pending-entry (str "* TODO pending.mp3\n:PROPERTIES:\n:HASH: " pending-hash "\n:SOURCE: " (.toString pending-mp3) "\n:END:")]
-        (Files/write @staging-org-file (.getBytes pending-entry) (into-array java.nio.file.OpenOption [])))
+      (let [pending-entry (str "* TODO pending.mp3\n:PROPERTIES:\n:HASH: " pending-hash "\n:SOURCE: " pending-mp3 "\n:END:")]
+        (fs/write-bytes @staging-org-file (.getBytes pending-entry)))
 
       (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
 
-      (let [content (slurp @staging-org-file)]
+      (let [content (-> @staging-org-file .toFile slurp)]
         ;; Only the new.mp3 should be added
         (is (str/includes? content "new.mp3"))
         (is (str/includes? content (str ":HASH: " new-hash)))
         ;; Ingested and pending should not be duplicated
-        (is (not (str/includes? content (str "* TODO ingested.mp3"))))
-        (is (str/includes? content (str "* TODO pending.mp3"))) ; Still there from initial setup
+        (is (not (str/includes? content "* TODO ingested.mp3")))
+        (is (str/includes? content "* TODO pending.mp3")) ; Still there from initial setup
         (is (= 2 (count (str/split content #"\* TODO")))) ; Initial pending + new one
         ))))
 
@@ -287,16 +281,16 @@
     (create-file @downloads-dir "image.png" "png content")
     (create-file @downloads-dir "video.wav" "wav content") ; Should be ignored per MVP
     (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
-    (is (str/blank? (slurp @staging-org-file)))))
+    (is (str/blank? (-> @staging-org-file .toFile slurp)))))
 
 (deftest scan-and-stage-downloads-read-only-invariant-test
   (testing "ensures downloads-path content is untouched"
     (let [mp3-file (create-file @downloads-dir "test.mp3" "original content")
           initial-hash (org-staging/deterministic-sha256-path mp3-file)
-          initial-files (set (map #(.getFileName %) (fp/list-audio-files @downloads-dir)))]
+          initial-files (set (map fs/file-name (fp/list-audio-files @downloads-dir)))]
       (org-staging/scan-and-stage-downloads @downloads-dir @assets-objects-root @staging-org-file)
       (let [after-scan-hash (org-staging/deterministic-sha256-path mp3-file)
-            after-scan-files (set (map #(.getFileName %) (fp/list-audio-files @downloads-dir)))]
+            after-scan-files (set (map fs/file-name (fp/list-audio-files @downloads-dir)))]
         (is (= initial-hash after-scan-hash)) ; Content hash should be unchanged
         (is (= initial-files after-scan-files)) ; No files should be moved/deleted/renamed
-        (is (Files/exists mp3-file (into-array LinkOption [])))))))
+        (is (fs/exists? mp3-file))))))

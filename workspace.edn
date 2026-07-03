@@ -12,4 +12,4 @@
  :validations {:inconsistent-lib-versions {:type :warning
                                            :exclude []}}
  :projects {"development" {:alias "dev"
-                           :components [:fp :org-staging]}}}
+                           :components [:downloads-cleaner]}}}

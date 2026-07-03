@@ -19,6 +19,12 @@ Implement the main `scan-and-stage-downloads` function that:
 - `components/org-staging/test/jstavel/org_staging/interface_test.clj`
 - `docs/current_slice.md` (this file)
 
+## Decisions
+For traversing folders: Use `babashka.fs/file-seq` and `babashka.fs/list-dir`.
+For path operations: Use `babashka.fs/path`.
+
+For actual content reading/writing: Use `clojure.java.io/reader` and `clojure.java.io/writer` in combination with `(.toFile path)`.
+
 ## Technical Steps
 
 ### 1. Implement `read-staging-org`

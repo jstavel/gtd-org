@@ -21,3 +21,18 @@
    See `jstavel.org-staging.core/scan-and-stage-downloads` for details."
   [downloads-path assets-objects-root staging-org-path]
   (core/scan-and-stage-downloads downloads-path assets-objects-root staging-org-path))
+
+(defn read-staging-org
+  "Parses the local `staging.org` file and extracts the `:HASH:` property
+   from all `* TODO` entries. Returns a set of these hashes for quick lookup.
+   Handles cases where the file does not exist or is empty gracefully.
+   See `jstavel.org-staging.core/read-staging-org` for details."
+  [staging-org-path]
+  (core/read-staging-org staging-org-path))
+
+(defn append-to-staging-org
+  "Safely appends a new Org-mode entry string to the local `staging.org` file.
+   Ensures atomic write/append operations and adds a leading newline.
+   See `jstavel.org-staging.core/append-to-staging-org` for details."
+  [staging-org-path entry-string]
+  (core/append-to-staging-org staging-org-path entry-string))

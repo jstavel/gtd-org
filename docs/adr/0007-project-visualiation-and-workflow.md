@@ -4,8 +4,8 @@ this is a copy of ADR from ~/org/docs/adr/0004-project-visualization-and-workflo
 *   **Status:** Accepted
 *   **Date:** 2026-06-03
 
-## Context When building projects intended as a "Showcase" or "Proof
-of Work" (PoW) for external review (e.g., GitHub), there is a tension
+## Context 
+When building projects intended as a "Showcase" or "Proof of Work" (PoW) for external review (e.g., GitHub), there is a tension
 between the developer's local Emacs/Org-mode workflow and how project
 management renders on a standard web interface. Standard nested
 Org-mode files render poorly on GitHub, leading to bad visibility, yet

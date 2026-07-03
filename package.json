@@ -1,0 +1,12 @@
+{
+    "devDependencies": {
+        "shadow-cljs": "^3.4.11"
+    },
+    "dependencies": {
+        "cheerio": "^1.2.0",
+        "playwright": "^1.61.0"
+    },
+    "scripts": {
+        "download": "node out/plaud_downloader.js"
+    }
+}

@@ -1,7 +1,10 @@
 #+TITLE: gtd-org Project Kanban
-
 * Backlog
-
+** TODO [H0/Runway] copy ADR-0008 into main source of the truth: ~/org/docs/adr
+- the hiearchy of the assets directory was changed
+** TODO [H0/Runway] refactor code to replace all Files usage by babashka.fs
+** TODO [H0/Runway] write ADR to use babashka.fs instead of using direct java.nio library
+   https://github.com/babashka/fs it is a common library in clojure world
 ** TODO migrace bucket z EUROPE-CENTRAL2 na EUROPE-WEST3
 - be careful - it will destroy application content and tfstate
   of the infrastructure.
@@ -18,6 +21,43 @@
 ** TODO [M3/Slice 2] Emacs Org-Agenda Automation Protocol
 ** TODO [M3/Slice 3] Automated Staging Cleansing & Verification
 * In Progress
+** WIP [KAN-0001] script na stahovani audio zaznamu z web.plaud.ai
+:PROPERTIES:
+:ID:       9cf75525-5a1f-4889-b975-dfdd5e69771a
+:END:
+:LOGBOOK:
+- State "WIP"        from "NEXT"       [2026-07-02 Thu 11:34]
+- State "NEXT"       from "TODO"       [2026-07-02 Thu 11:34]
+:END:
+Skript slouzi ke stahovani audio zaznamu z web.plaud.ai. V budoucnosti bude skript i zaznamy mazat. Ale prozatim je jen vyhledava a stahuje.
+*** usecase
+Uzivatel spusti skript.
+- Skript si v prohlizeci otevre stranku "web.plaud.ai".
+- Skript ulozi html obsah hlavni stranky.
+- skript klikne na linku "All Files ([num of records])"
+- skript ulozi html obsah stranky se seznamem audio zaznamu
+- skript poskytne seznam audio zaznamu ve forme:
+  #+begin_src malli
+  [:sequential [:name      string?
+                :duration  time
+                :plaud-id  string?
+                :created   datetime?]] 
+  #+end_src
+
+**** Trigger
+**** Preconditions
+Uzivatel spusti prohlizec a autorizuje se do google uctu. Tento ucet se pouziva jako OAuth pro plad.ai
+#+begin_src shell
+  chromium-browser --remote-debugging-port=9222
+#+end_src
+**** Postcondition
+- a list of presented audio records is returned
+- a page of the records is stored at a file
+*** capabilitites
+**** stazeni stranky
+- vstup: 
+**** ziskani seznamu audio zaznamu
+
 ** WIP [H0/Runway] Implement Staging Worker (org-staging component)
    :PROPERTIES:
    :CATEGORY: ingest
