@@ -91,34 +91,36 @@ interceptor "audit_archiving" {
     ]
 }
 
-# Stages
-stage "init" {
-    description = "start of the application"
-    owner = "user"
-    next_stages = ["monitor"]
-}
+# Workflow
+workflow "records_ingestion" {
+    stage "init" {
+        description = "start of the application"
+        owner = "user"
+        next_stages = ["monitor"]
+    }
 
-stage "monitor" {
-  description = "Watcher scans the directory and passes files."
-  owner       = "actor.watcher"
-  next_stages = ["metadata_enrichment"]
-  # The watcher initiates metadata enrichment for files it finds.
-}
+    stage "monitor" {
+        description = "Watcher scans the directory and passes files."
+        owner       = "actor.watcher"
+        next_stages = ["metadata_enrichment"]
+        # The watcher initiates metadata enrichment for files it finds.
+    }
 
-stage "metadata_enrichment" {
-  description = "Metadata provider enriches data."
-  owner       = "actor.metadata_provider"
-  next_stages = ["record_preparation"] # After enrichment, the record goes back to the watcher for final preparation.
-}
+    stage "metadata_enrichment" {
+        description = "Metadata provider enriches data."
+        owner       = "actor.metadata_provider"
+        next_stages = ["record_preparation"] # After enrichment, the record goes back to the watcher for final preparation.
+    }
 
-stage "record_preparation" {
-    description = "Watcher identifies Plaud records and prepares the final structure for orchestration."
-    owner = "actor.watcher"
-    next_stages = ["record_staging"] # The prepared record is then sent for staging.
-}
+    stage "record_preparation" {
+        description = "Watcher identifies Plaud records and prepares the final structure for orchestration."
+        owner = "actor.watcher"
+        next_stages = ["record_staging"] # The prepared record is then sent for staging.
+    }
 
-stage "record_staging" {
-    description = "Orchestrator writes the prepared record into the staging area."
-    owner = "actor.orchestrator"
-    next_stages = [] # This could be the final stage, or point to further processing.
+    stage "record_staging" {
+        description = "Orchestrator writes the prepared record into the staging area."
+        owner = "actor.orchestrator"
+        next_stages = [] # This could be the final stage, or point to further processing.
+    }
 }
