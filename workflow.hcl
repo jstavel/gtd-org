@@ -124,3 +124,35 @@ workflow "records_ingestion" {
         next_stages = [] # This could be the final stage, or point to further processing.
     }
 }
+
+workflow "plaud_records_downloading" {
+    stage "init" {
+        description = "Start of the downloading process"
+        owner       = "user"
+        next_stages = ["connect_to_browser"]
+    }
+
+    stage "connect_to_browser" {
+        description = "Plaud downloader connects to browser."
+        owner       = "actor.plaud_downloader"
+        next_stages = ["fetch_page"]
+    }
+
+    stage "fetch_page" {
+        description = "Plaud downloader fetches audio records page."
+        owner       = "actor.plaud_downloader"
+        next_stages = ["save_page"]
+    }
+
+    stage "save_page" {
+        description = "Plaud downloader saves HTML page."
+        owner       = "actor.plaud_downloader"
+        next_stages = ["extract_records"]
+    }
+
+    stage "extract_records" {
+        description = "Plaud downloader extracts audio record list."
+        owner       = "actor.plaud_downloader"
+        next_stages = []
+    }
+}

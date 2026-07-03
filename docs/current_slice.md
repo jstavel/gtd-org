@@ -1,98 +1,102 @@
-# Current Slice: [H0/Runway] Implement Core Staging Worker Logic (org-staging)
+# Architectural Assignment – KAN-0001
+## Script for downloading the audio records list from web.plaud.ai
 
-## Context (incorporating ADR 0006: Local-First Data Storage)
-With the `deterministic-sha256-path` and `build-asset-index` functionalities in place, the `org-staging` component is ready for its primary task: scanning the `~/Downloads/` directory and preparing new assets for human review. This slice implements the core "human-in-the-loop" workflow as described in ADR 0005 and `docs/specification.md`, focusing on detection, hashing, and registering `TODO` entries in `staging.org`.
+### 1. Goal
+Create an automated script that, via Chromium browser (remote debugging), performs:
+- connecting to the browser
+- navigating to the web application web.plaud.ai
+- saving the HTML page with the “All Files” list
+- extracting a structured list of audio recordings (name, duration, plaud-id, creation date)
 
-**Crucially, in line with ADR 0006, all asset management in this phase (e.g., checking `assets/objects/` and `staging.org`) refers to *local* file system paths within `$ORG_ROOT`, not cloud storage.** The cloud will serve as a transient processing layer in later stages, but the primary asset store remains local.
+The script will be part of the ClojureScript `plaud-downloader` component and will satisfy the defined contracts (see `docs/contracts/`).
 
-## Goal
-Implement the main `scan-and-stage-downloads` function that:
-1. Monitors the user's `~/Downloads/` directory for new `.mp3` files (MVP decision).
-2. Uses the `build-asset-index` to identify files already present in the `assets/objects/` store.
-3. Checks `staging.org` to avoid duplicate `TODO` entries for files already registered or explicitly actioned.
-4. For each newly discovered `.mp3` file, it creates a `TODO` entry in the **local** `$ORG_ROOT/staging.org` containing its `:HASH:` and `:SOURCE:` properties.
-5. Ensures the entire process is idempotent and does not perform any physical file operations (move/delete) in `~/Downloads/`.
+### 2. Technology stack
+- **Playwright-js** – library for controlling the browser via the Chrome DevTools Protocol (JS API). It will be called from ClojureScript using interop.
+- **ClojureScript** – main language for logic, compiled to JavaScript using **shadow-cljs**.
+- **Node.js** – runtime for executing the script.
+- **Malli** – data validation according to contracts (optional, if we want to verify outputs).
+- **Tests** – using `cljs.test` and the Playwright API for integration scenarios.
 
-## Target Files
-- `components/org-staging/src/jstavel/org_staging/core.clj`
-- `components/org-staging/src/jstavel/org_staging/interface.clj`
-- `components/org-staging/test/jstavel/org_staging/interface_test.clj`
-- `docs/current_slice.md` (this file)
+### 3. Scope and expected functionality
+The script will implement the following capabilities defined in `workflow.hcl`:
 
-## Decisions
-For traversing folders: Use `babashka.fs/file-seq` and `babashka.fs/list-dir`.
-For path operations: Use `babashka.fs/path`.
+1. `connect_to_browser`
+   - Input: `BrowserConnectionConfig` (map with an optional port)
+   - Output: `BrowserConnection` (session-id, browser-version) or `ConnectionError` (error, message)
+   - Implementation: `(connect! {:remote-debug-port 9222})` opens a Playwright `chromium.connectOverCDP()`, obtains session-id and version.
 
-For actual content reading/writing: Use `clojure.java.io/reader` and `clojure.java.io/writer` in combination with `(.toFile path)`.
+2. `fetch_audio_records_page`
+   - Input: `BrowserConnection` + `FetchPageConfig` (session-id, optional base-url, timeout)
+   - Output: `HtmlPage` (html-content, page-url, timestamp) or `FetchPageError` (error, message, optional page-html)
+   - Implementation: using Playwright, navigates, waits for the page to load, clicks on “All Files”, extracts HTML.
 
-## Technical Steps
+3. `save_page_html`
+   - Input: `HtmlPage`
+   - Output: `SavePageResult` (output-path, bytes-written) or `SavePageError`
+   - Implementation: saves HTML to a file with a deterministic name (using a timestamp), returns path and size.
 
-### 1. Implement `read-staging-org`
-- In `components/org-staging/src/jstavel/org_staging/core.clj`:
-    - Define `read-staging-org` to parse `staging.org` and extract the `:HASH:` property from all `* TODO` entries.
-    - It should return a `set` of these hashes for quick lookup.
-    - Handle cases where the **local** `staging.org` does not exist or is empty gracefully (return an empty set).
-    - This will likely involve reading the file line by line and using regular expressions to match `* TODO` headings and `:HASH:` properties.
+4. `extract_records`
+   - Input: `HtmlPage` + `ExtractionPolicy` (parse-strategy)
+   - Output: `PlaudAudioRecordsList` (list of records) or `ExtractionError` (error, message, optional partial-records)
+   - Implementation: parses HTML using cheerio (or playwright's `page.evaluate`) according to the chosen strategy. In the current version we will use the default strategy `:plaud-web-default` (CSS selectors).
 
-### 2. Implement `append-to-staging-org`
-- In `components/org-staging/src/jstavel/org_staging/core.clj`:
-    - Define `append-to-staging-org` to safely append a new Org-mode entry string to `staging.org`.
-    - Ensure atomic write/append operations to prevent data corruption. `java.nio.file.Files/write` with `StandardOpenOption/APPEND` is suitable.
-    - Add a newline before the new entry to ensure it's always on a new line in the **local** `staging.org`.
+The script must handle errors:
+- `:connection-refused` – browser is not available
+- `:not-authenticated` – user is not logged in
+- `:timeout` – element not found / page didn't load
+- `:partial-parse` – only a portion of records was recognised
 
-### 3. Implement `scan-and-stage-downloads`
-- In `components/org-staging/src/jstavel/org_staging/core.clj`:
-    - Define the `scan-and-stage-downloads` function.
-    - It should accept `downloads-path` (e.g., `(Paths/get (System/getProperty "user.home") "Downloads")`), `assets-objects-root` (e.g., `(Paths/get (System/getenv "ORG_ROOT") "assets" "objects")` - **local path**), and `staging-org-path` (e.g., `(Paths/get (System/getenv "ORG_ROOT") "staging.org")` - **local path**) as `java.nio.file.Path` arguments.
-    - Use `fp/list-audio-files` to get all audio files from `downloads-path`.
-    - Filter the results to include *only* `.mp3` files (case-insensitive).
-    - Call `build-asset-index` with `assets-objects-root` to get a set of already ingested asset hashes.
-    - Call `read-staging-org` with `staging-org-path` to get a set of hashes already pending in `staging.org`.
-    - For each filtered `.mp3` file found in `downloads-path`:
-        - Calculate its SHA-256 hash using `deterministic-sha256-path`.
-        - Check if this hash is present in the `ingested-asset-hashes` set OR the `pending-staging-hashes` set.
-        - If the hash is *not* found in either set:
-            - Construct an Org-mode `TODO` entry string including:
-                - `* TODO <filename>`
-                - `:PROPERTIES:`
-                - `:HASH: <calculated-hash>`
-                - `:SOURCE: <file-path-as-string>` (full path to the file in `~/Downloads/`)
-                - `:END:`
-            - Append this entry to the **local** `staging.org` using `append-to-staging-org`.
-        - If the hash is found in either set, log an informational message indicating the file is already known and skip it.
-    - The function must **not** move, delete, or modify files in `downloads-path`.
+### 4. Architecture and integration
+The `plaud-downloader` component will be located in the repository at `components/plaud-downloader/`. Contents:
+- `src/jstavel/plaud_downloader/interface.clj` – public functions
+- `src/jstavel/plaud_downloader/core.cljs` – implementation using Playwright (currently a skeleton with atoms and comments)
+- `test/jstavel/plaud_downloader/interface_test.clj` – unit tests
 
-### 4. Expose Interface
-- In `components/org-staging/src/jstavel/org_staging/interface.clj`:
-    - Define `scan-and-stage-downloads`, delegating to `jstavel.org-staging.core/scan-and-stage-downloads`.
+**Playwright interop**:
+- ClojureScript will call the Playwright JavaScript API using `js/require` or shadow-cljs npm deps.
+- In `deps.edn` the `:npm-deps` will be defined as: `"playwright": "^1.40.0"`.
+- Code will use functions like `(let [browser (js/playwright.chromium.connectOverCDP #js{:endpointURL ...})] ...)` and similar.
 
-### 5. Write Unit Tests
-- In `components/org-staging/test/jstavel/org_staging/interface_test.clj`:
-    - Create a temporary fixture for a `Downloads` directory, an `assets/objects` directory, and a `staging.org` file. Ensure proper cleanup.
-    - Test `read-staging-org`:
-        - With an empty `staging.org`.
-        - With a `staging.org` containing `TODO` entries with hashes.
-        - With a `staging.org` containing entries without hashes (ensure they are skipped).
-    - Test `append-to-staging-org`:
-        - Append a new entry to an empty file.
-        - Append multiple entries to an existing file.
-    - Test `scan-and-stage-downloads`:
-        - **Empty `Downloads`:** `staging.org` should remain empty.
-        - **New `.mp3`:** One `.mp3` in `Downloads`, `staging.org` gets one `TODO` entry.
-        - **Multiple New `.mp3`s:** Multiple `.mp3`s, `staging.org` gets multiple `TODO` entries.
-        - **Already Ingested:** `.mp3` in `Downloads` whose hash already exists in `assets/objects` -> `staging.org` remains unchanged.
-        - **Already Staged (Idempotency):** `.mp3` in `Downloads` whose hash is already in `staging.org` as a `TODO` -> `staging.org` remains unchanged.
-        - **Mixed Scenarios:** Combinations of new, already ingested, and already staged files.
-        - **Non-MP3 Files:** Ensure `.wav`, `.txt`, etc., are ignored.
-    - Verify that `staging.org` is correctly updated and that `Downloads` content is untouched.
+**Data flow**:
+- The user (or caller) calls `(interface/run-download)`, which starts the whole process.
+- Each step calls asynchronous operations (Promises) and returns either data or an error map.
+- Data are returned as Clojure/JS maps conforming to the contracts.
 
-## Definition of Done (DoD)
-- [] `read-staging-org` and `append-to-staging-org` helper functions are implemented and pass their unit tests.
-- [] `scan-and-stage-downloads` function is implemented in `core.clj` and exposed in `interface.clj`.
-- [] The worker correctly identifies `.mp3` files in the specified `downloads-path` and ignores other file types.
-- [] The worker accurately determines if a file has been ingested (by checking the **local** `assets/objects/` using `build-asset-index`).
-- [] The worker accurately determines if a file is already pending in the **local** `staging.org` (using `read-staging-org`).
-- [] For each *new and not yet staged* `.mp3` file, a `TODO` entry with correct `:HASH:` and `:SOURCE:` properties is appended to the **local** `staging.org`.
-- [] The worker strictly adheres to the "read-only" invariant for `downloads-path` (no move, delete, or modify operations).
-- [] All unit tests for `scan-and-stage-downloads` cover empty, new, existing (in assets), existing (in staging), mixed, and ignored file type scenarios, and pass.
-- [] The behavior of the `scan-and-stage-downloads` utility is proven to be idempotent.
+**Logging and archiving**:
+- All steps log to the console (for debugging) and may write to a file.
+- Saved HTML has a deterministic name with a timestamp for auditing.
+
+### 5. Contracts
+The implementation must follow the specifications in `docs/contracts/`. The main contracts used:
+- `BrowserConnectionConfig`, `BrowserConnection`, `ConnectionError`
+- `FetchPageConfig`, `HtmlPage`, `FetchPageError`
+- `SavePageResult`, `SavePageError`
+- `PlaudAudioRecordsList`, `ExtractionError`, `ExtractionPolicy`
+
+The contracts define the expected structures of inputs and outputs.
+
+### 6. Testing and verification
+- **Unit tests** for HTML parsing (mock HTML in tests), functions for building output maps.
+- **Property tests** verify that the output structure conforms to Malli schemas (if validation is integrated).
+- **Manual testing** by running the script with Chromium in remote debugging mode.
+
+### 7. Development environment requirements
+- Node.js (version >=18)
+- Clojure CLI (`tools.deps`)
+- shadow-cljs (`npm install shadow-cljs`)
+- Playwright installed in the project (`npx playwright install`)
+
+### 8. Deliverables
+- Functional implementation in `components/plaud-downloader` covering all capabilities.
+- Test coverage for key scenarios.
+- Documentation – file `docs/architecture.md` (or update of current_slice) describing usage and execution.
+
+### 9. Schedule / phases (proposal)
+1. Implementation of `connect_to_browser`
+2. Implementation of `fetch_audio_records_page`
+3. Implementation of `save_page_html`
+4. Implementation of `extract_records`
+5. Error handling and logging
+6. Unit tests
+7. Integration tests
+8. Documentation
