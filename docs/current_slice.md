@@ -1,6 +1,10 @@
 # Architectural Assignment – KAN-0001
 ## Script for downloading the audio records list from web.plaud.ai
 
+This document follows the specification-driven development methodology defined in [CONTRIBUTING.md](../CONTRIBUTING.md).
+It implements the use case described in [0002 – Plaud Web Audio Records List Retrieval](usecases/0002-plaud-web-audio-records-list.md)
+and references the contracts and workflows present in the project.
+
 ### 1. Goal
 Create an automated script that, via Chromium browser (remote debugging), performs:
 - connecting to the browser
