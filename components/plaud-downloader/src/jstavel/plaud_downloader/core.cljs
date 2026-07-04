@@ -20,8 +20,8 @@
       (reset! atom-frame main-frame)
       (let [all-files-button (await (-> @atom-frame (.locator "text=/All Files/i")))
             _ (await (.click all-files-button))
-            ;; -- save html content of the current page into all-files-page.html using writeFileSync AI!
-            ]
+            html-content (await (.content page))
+            _ (fs/writeFileSync "all-files-page.html" html-content)]
         )
       )
     (tap> {:msg "Zahajuji stahovani stranek"})
