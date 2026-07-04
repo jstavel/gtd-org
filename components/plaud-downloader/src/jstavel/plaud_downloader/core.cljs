@@ -20,6 +20,7 @@
       (reset! atom-frame main-frame)
       (let [all-files-button (await (-> @atom-frame (.locator "text=/All Files/i")))
             _ (await (.click all-files-button))
+            ;; -- save html content of the current page into all-files-page.html using writeFileSync AI!
             ]
         )
       )
