@@ -18,8 +18,7 @@
                          (.find (fn [fr] (-> fr .url (s/includes? "web.plaud.ai")))))]
       (reset! atom-page page)
       (reset! atom-frame main-frame)
-      ;; -- let block with all-files-button. It will be take by .locator ("text=/All Files/i") AI!
-      (let [all-files-button (await (-> @atom-frame (.locator "text=/All files/i")))
+      (let [all-files-button (await (-> @atom-frame (.locator "text=/All Files/i")))
             _ (await (.click all-files-button))
             ]
         )
