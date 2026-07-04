@@ -20,10 +20,10 @@
       (reset! atom-frame main-frame)
       (let [all-files-button (await (-> @atom-frame (.locator "text=/All Files/i")))
             _ (await (.click all-files-button))
-            html-content (await (.content page))]
-        ;; -- vytahni "all-file-page.html" to promenne a vsechny retezce nahrad touto promennout AI!
-        (fs/writeFileSync "all-files-page.html" html-content)
-        (tap> "page with list of audio records was saved at all-files-page.html")
+            html-content (await (.content page))
+            output-file "all-files-page.html"]
+        (fs/writeFileSync output-file html-content)
+        (tap> (str "page with list of audio records was saved at " output-file))
         )
       )
     (tap> {:msg "Zahajuji stahovani stranek"})
