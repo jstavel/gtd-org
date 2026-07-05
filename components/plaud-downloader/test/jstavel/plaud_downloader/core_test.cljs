@@ -1,5 +1,7 @@
 (ns jstavel.plaud-downloader.core-test
   (:require [jstavel.plaud-downloader.core :as sut]
+            ["fs" :as fs]
+            ["path" :as path]
             [cljs.test :refer-macros [deftest is testing]]))
 
 (def mock-html
@@ -68,4 +70,31 @@
     (let [result (sut/save-page-html html-page)]
       (is (string? (:output-path result)))
       (is (number? (:bytes-written result))))))
+
+(def real-page-path
+  (path/join "components" "plaud-downloader" "resources" "plaud-downloader" "all-files-page.html"))
+
+(def real-html-content
+  (fs/readFileSync real-page-path "utf8"))
+
+(def real-html-page
+  {:html-content real-html-content
+   :page-url "https://web.plaud.ai"
+   :timestamp "2026-07-01T21:46:39.000Z"})
+
+(deftest extract-records-from-real-page
+  (testing "Extraction from real all-files-page.html fixture"
+    (let [result (sut/extract-records real-html-page {:parse-strategy :plaud-web-default})]
+      (is (not (:error result)) "Should have no error")
+      (is (= 30 (count (:records result))) "Should find exactly 30 records")
+      (let [record-by-id (into {} (map (juxt :plaud-id identity) (:records result)))]
+        (is (= "4m 45s" (:duration (get record-by-id "8acb9405f6274428c59c98f02c453b89"))))
+        (is (= "2026-07-01 21:46:39" (:name (get record-by-id "8acb9405f6274428c59c98f02c453b89"))))
+        (is (= "2026-07-01 21:46:39" (:created (get record-by-id "8acb9405f6274428c59c98f02c453b89"))))
+
+        (is (= "53s" (:duration (get record-by-id "dff75bce0ecb01fb1023eaa4f2666103"))))
+        (is (= "2026-06-28 09:42:22" (:name (get record-by-id "dff75bce0ecb01fb1023eaa4f2666103"))))
+
+        (is (= "25m 26s" (:duration (get record-by-id "6b906048380c47be9b49b265f777c00b"))))
+        (is (= "2026-06-22 10:29:40" (:name (get record-by-id "6b906048380c47be9b49b265f777c00b"))))))))
 
