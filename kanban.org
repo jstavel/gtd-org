@@ -71,6 +71,13 @@ CLOSED: [2026-07-05 Sun 10:28]
 - State "WIP"        from "NEXT"       [2026-07-05 Sun 10:28]
 - State "NEXT"       from "TODO"       [2026-07-05 Sun 10:28]
 :END:
+*** DONE Implementace save_page_html
+CLOSED: [2026-07-05 Sun 10:36]
+:LOGBOOK:
+- State "DONE"       from "WIP"       [2026-07-05 Sun 10:36]
+- State "WIP"        from "NEXT"       [2026-07-05 Sun 10:36]
+- State "NEXT"       from "TODO"       [2026-07-05 Sun 10:36]
+:END:
 
 ** WIP [H0/Runway] Implement Staging Worker (org-staging component)
    :PROPERTIES:
