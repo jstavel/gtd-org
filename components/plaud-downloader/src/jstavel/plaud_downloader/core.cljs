@@ -2,6 +2,7 @@
   (:require ["playwright" :as pw]
             ["fs" :as fs]
             ["cheerio" :as cheerio]
+            ["child_process" :as cp]
             [clojure.string :as s]))
 
 (defonce atom-frame (atom nil))
@@ -29,11 +30,12 @@
 (defn- api-record->record
   "Convert a JS API response item to the PlaudAudioRecordsList contract format."
   [^js api-item]
-  {:name     (.-filename api-item)
-   :duration (ms->duration-string (.-duration api-item))
-   :plaud-id (.-id api-item)
-   :created  (ms->datetime-string (.-start_time api-item))
-   :filesize (.-filesize api-item)})
+  {:name        (.-filename api-item)
+   :duration    (ms->duration-string (.-duration api-item))
+   :duration-ms (.-duration api-item)
+   :plaud-id    (.-id api-item)
+   :created     (ms->datetime-string (.-start_time api-item))
+   :filesize    (.-filesize api-item)})
 
 (defn ^:async connect-to-browser [config]
   (try
@@ -210,35 +212,54 @@
           dl-result
           (assoc dl-result :plaud-id plaud-id))))))
 
+(def ^:private duration-tolerance-ms 1000)
+
+(defn- mp3-duration-ms
+  "Read MP3 duration (milliseconds) via ffprobe. Returns nil on failure."
+  [file-path]
+  (try
+    (let [result (.execSync cp (str "ffprobe -v error -show_entries format=duration -of csv=p=0 " file-path))
+          secs   (js/parseFloat (.toString result "utf8"))]
+      (when (pos? secs) (long (* secs 1000))))
+    (catch js/Error _ nil)))
+
+(defn- ^:async download-and-report
+  "Downloads a recording and returns a result map. Logs to tap>."
+  [^js page {:keys [plaud-id name]} out-path]
+  (let [temp-result (await (fetch-temp-url page plaud-id))]
+    (if (:error temp-result)
+      (do (tap> (str "ERROR temp-url " name " [" plaud-id "]: " (:message temp-result)))
+          temp-result)
+      (let [dl-result (await (download-file-from-url (:temp-url temp-result) out-path))]
+        (if (:error dl-result)
+          (do (tap> (str "ERROR download " name " [" plaud-id "]: " (:message dl-result)))
+              dl-result)
+          (do (tap> (str "OK " name " [" plaud-id "] (" (:bytes-written dl-result) " bytes)"))
+              (assoc dl-result :plaud-id plaud-id)))))))
+
 (defn ^:async download-recording
-  "Downloads a Plaud recording with duplicate detection by filesize.
-   API filesize is source of truth — if local file exists with different size,
-   it's considered broken and gets overwritten.
+  "Downloads a Plaud recording with ffprobe-based duplicate detection.
+   Compares API duration-ms with local MP3 duration via ffprobe.
    Names files by plaud-id: '8acb9405...mp3'.
-   Input: page, record map {:plaud-id ... :filesize ...}, output-dir
+   Input: page, record map {:plaud-id ... :filesize ... :name ... :duration-ms ...}, output-dir
    Returns {:plaud-id ... :output-path ... :bytes-written N :skipped? bool}"
-  [^js page {:keys [plaud-id filesize]} output-dir]
+  [^js page {:keys [plaud-id filesize name duration-ms] :as record} output-dir]
   (let [out-path   (str output-dir "/" plaud-id ".mp3")
         local-stat (try (.statSync fs out-path) (catch js/Error _ nil))]
-    (if (and local-stat (= (.-size local-stat) filesize))
-      (do (tap> (str "SKIP " plaud-id " (" filesize " bytes, healthy)"))
-          {:plaud-id      plaud-id
-           :output-path   out-path
-           :bytes-written (.-size local-stat)
-           :skipped?      true})
-      (do (when local-stat
-            (tap> (str "BROKEN " plaud-id " local=" (.-size local-stat) " api=" filesize " -> re-download")))
-          (tap> (str "DOWNLOAD " plaud-id " ..."))
-          (let [temp-result (await (fetch-temp-url page plaud-id))]
-            (if (:error temp-result)
-              (do (tap> (str "ERROR temp-url: " (:message temp-result)))
-                  temp-result)
-              (let [dl-result (await (download-file-from-url (:temp-url temp-result) out-path))]
-                (if (:error dl-result)
-                  (do (tap> (str "ERROR download: " (:message dl-result)))
-                      dl-result)
-                  (do (tap> (str "OK " plaud-id " (" (:bytes-written dl-result) " bytes)"))
-                      (assoc dl-result :plaud-id plaud-id))))))))))
+    (if local-stat
+      (let [local-ms (mp3-duration-ms out-path)]
+        (if (and local-ms (<= (js/Math.abs (- local-ms duration-ms)) duration-tolerance-ms))
+          (do (tap> (str "SKIP " name " [" plaud-id "] (" filesize " bytes, duration " local-ms "ms ~ API " duration-ms "ms)"))
+              {:plaud-id      plaud-id
+               :output-path   out-path
+               :bytes-written (.-size local-stat)
+               :skipped?      true})
+          (do (tap> (str (if local-ms
+                           (str "MISMATCH " name " [" plaud-id "] local-duration=" local-ms "ms api-duration=" duration-ms "ms -> re-download")
+                           (str "BROKEN " name " [" plaud-id "] ffprobe FAIL -> re-download"))))
+              (await (download-and-report page record out-path)))))
+      (do (tap> (str "DOWNLOAD " name " [" plaud-id "] ..."))
+          (await (download-and-report page record out-path))))))
 
 (declare fetch-records-via-api)
 
