@@ -49,7 +49,12 @@ actor "plaud_downloader" {
     "connect_to_browser",
     "fetch_audio_records_page",
     "save_page_html",
-    "extract_records"
+    "extract_records",
+    "fetch_records_via_api",
+    "fetch_temp_url",
+    "download_file_from_url",
+    "download_recording",
+    "download_all_new_recordings"
   ]
 
   capability "connect_to_browser" {
@@ -70,6 +75,31 @@ actor "plaud_downloader" {
   capability "extract_records" {
     input_contract  = ["HtmlPage", "ExtractionPolicy"]
     output_contract = ["PlaudAudioRecordsList", "ExtractionError"]
+  }
+
+  capability "fetch_records_via_api" {
+    input_contract  = "BrowserConnection"
+    output_contract = ["PlaudAudioRecordsList", "ApiFetchError"]
+  }
+
+  capability "fetch_temp_url" {
+    input_contract  = ["BrowserConnection", "PlaudRecordId"]
+    output_contract = ["TempUrl", "TempUrlError"]
+  }
+
+  capability "download_file_from_url" {
+    input_contract  = ["DownloadUrl", "OutputPathConfig"]
+    output_contract = ["DownloadResult", "DownloadError"]
+  }
+
+  capability "download_recording" {
+    input_contract  = ["BrowserConnection", "PlaudAudioRecord", "OutputDirectoryConfig"]
+    output_contract = ["DownloadResult", "DownloadError"]
+  }
+
+  capability "download_all_new_recordings" {
+    input_contract  = ["BrowserConnection", "PlaudAudioRecordsList", "OutputDirectoryConfig"]
+    output_contract = ["BatchDownloadResult", "DownloadError"]
   }
 }
 
@@ -133,25 +163,19 @@ workflow "plaud_records_downloading" {
     }
 
     stage "connect_to_browser" {
-        description = "Plaud downloader connects to browser."
+        description = "Plaud downloader connects to browser via CDP."
         owner       = "actor.plaud_downloader"
-        next_stages = ["fetch_page"]
+        next_stages = ["fetch_records_via_api"]
     }
 
-    stage "fetch_page" {
-        description = "Plaud downloader fetches audio records page."
+    stage "fetch_records_via_api" {
+        description = "Fetches all Plaud audio records via API (/file/simple/web). Falls back to HTML extraction (fetch_page -> save_page -> extract_records) on API failure."
         owner       = "actor.plaud_downloader"
-        next_stages = ["save_page"]
+        next_stages = ["download_all_new_recordings"]
     }
 
-    stage "save_page" {
-        description = "Plaud downloader saves HTML page."
-        owner       = "actor.plaud_downloader"
-        next_stages = ["extract_records"]
-    }
-
-    stage "extract_records" {
-        description = "Plaud downloader extracts audio record list."
+    stage "download_all_new_recordings" {
+        description = "Batch downloads recordings not yet present locally with healthy filesize. Fetches presigned S3 URL per recording, downloads binary via Node.js fetch, deduplicates by filesize (API filesize is source of truth)."
         owner       = "actor.plaud_downloader"
         next_stages = []
     }

@@ -211,21 +211,24 @@
           (assoc dl-result :plaud-id plaud-id))))))
 
 (defn ^:async download-recording
-  "Downloads a Plaud recording with duplicate detection.
+  "Downloads a Plaud recording with duplicate detection by filesize.
+   API filesize is source of truth — if local file exists with different size,
+   it's considered broken and gets overwritten.
    Names files by plaud-id: '8acb9405...mp3'.
-   Skips download if the file already exists in output-dir.
-   Input: page, record map {:plaud-id ...}, output-dir
+   Input: page, record map {:plaud-id ... :filesize ...}, output-dir
    Returns {:plaud-id ... :output-path ... :bytes-written N :skipped? bool}"
-  [^js page {:keys [plaud-id]} output-dir]
+  [^js page {:keys [plaud-id filesize]} output-dir]
   (let [out-path   (str output-dir "/" plaud-id ".mp3")
         local-stat (try (.statSync fs out-path) (catch js/Error _ nil))]
-    (if local-stat
-      (do (tap> (str "SKIP " plaud-id " (" (.-size local-stat) " bytes)"))
+    (if (and local-stat (= (.-size local-stat) filesize))
+      (do (tap> (str "SKIP " plaud-id " (" filesize " bytes, healthy)"))
           {:plaud-id      plaud-id
            :output-path   out-path
            :bytes-written (.-size local-stat)
            :skipped?      true})
-      (do (tap> (str "DOWNLOAD " plaud-id " ..."))
+      (do (when local-stat
+            (tap> (str "BROKEN " plaud-id " local=" (.-size local-stat) " api=" filesize " -> re-download")))
+          (tap> (str "DOWNLOAD " plaud-id " ..."))
           (let [temp-result (await (fetch-temp-url page plaud-id))]
             (if (:error temp-result)
               (do (tap> (str "ERROR temp-url: " (:message temp-result)))
