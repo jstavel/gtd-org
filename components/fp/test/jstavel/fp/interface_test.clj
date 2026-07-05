@@ -3,8 +3,7 @@
             [jstavel.fp.interface :as fp])
   (:import (java.nio.file Files Path LinkOption FileVisitOption)
            (java.nio.file.attribute FileAttribute)
-           (java.util UUID)
-           (java.util.stream Collectors)))
+           (java.util UUID)))
 
 (def ^:private temp-dir (atom nil))
 

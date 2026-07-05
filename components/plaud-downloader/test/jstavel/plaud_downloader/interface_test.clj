@@ -1,6 +1,5 @@
 (ns jstavel.plaud-downloader.interface-test
-  (:require [clojure.test :as test :refer :all]
-            [jstavel.plaud-downloader.interface :as plaud-downloader]))
+  (:require [clojure.test :refer [deftest is]]))
 
 (deftest dummy-test
   (is (= 1 1)))

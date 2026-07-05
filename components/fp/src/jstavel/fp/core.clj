@@ -1,14 +1,13 @@
 (ns jstavel.fp.core
   (:require [clojure.string :as str])
   (:import
-   (java.nio.file Files Path FileVisitOption LinkOption)
-   (java.util.function Predicate)
-   (java.security MessageDigest)
-   (java.util.stream Stream)))
+    (java.nio.file Files Path FileVisitOption LinkOption)
+    (java.security MessageDigest)
+    (java.util.stream Stream)))
 
+;; Extracts the lowercase file extension from a java.nio.file.Path object.
+;; Returns nil if no extension or if it's a hidden file like '.bashrc'.
 (defn- get-extension [^Path path]
-  "Extracts the lowercase file extension from a java.nio.file.Path object.
-  Returns nil if no extension or if it's a hidden file like '.bashrc'."
   (let [file-name (str (.getFileName path))]
     (when-let [dot-idx (str/last-index-of file-name ".")]
       (when (> dot-idx 0) ; Ensure it's not a hidden file like ".bashrc"
