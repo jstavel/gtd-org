@@ -13,11 +13,14 @@
                                                      :git/tag "v0.1.4"
                                                      :git/sha "34e381e"}
                                jstavel/plaud-downloader {:local/root "components/plaud-downloader"}
+                               refactor-nrepl/refactor-nrepl {:mvn/version "3.13.0"}
                                djblue/portal {:mvn/version "0.65.0"}
                                }
                   }
             :test {:extra-paths ["development/test"
-                                 "components/downloads-cleaner/test"]}
+                                 "components/downloads-cleaner/test"
+                                 "components/plaud-downloader/test"
+                                 ]}
             :kaocha {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
                      :main-opts ["-m" "kaocha.runner"]
                      }

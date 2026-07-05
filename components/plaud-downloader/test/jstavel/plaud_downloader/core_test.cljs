@@ -1,7 +1,7 @@
 (ns jstavel.plaud-downloader.core-test
   (:require [jstavel.plaud-downloader.core :as sut]
-            [cljs.test :as t :include-macros true]))
+            [cljs.test :refer-macros [deftest is]]))
 
-(t/deftest parse-page
-  (t/is (= 1 1))
+(deftest parse-page
+  (is (= 1 1))
   )

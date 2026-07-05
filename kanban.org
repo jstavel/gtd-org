@@ -57,6 +57,20 @@ Uzivatel spusti prohlizec a autorizuje se do google uctu. Tento ucet se pouziva 
 **** stazeni stranky
 - vstup: 
 **** ziskani seznamu audio zaznamu
+*** DONE Implementace connect_to_browser
+CLOSED: [2026-07-05 Sun 10:28]
+:LOGBOOK:
+- State "DONE"       from "WIP"       [2026-07-05 Sun 10:28]
+- State "WIP"        from "NEXT"       [2026-07-05 Sun 10:28]
+- State "NEXT"       from "TODO"       [2026-07-05 Sun 10:28]
+:END:
+*** DONE Implementace fetch_audio_records_page
+CLOSED: [2026-07-05 Sun 10:28]
+:LOGBOOK:
+- State "DONE"       from "WIP"       [2026-07-05 Sun 10:28]
+- State "WIP"        from "NEXT"       [2026-07-05 Sun 10:28]
+- State "NEXT"       from "TODO"       [2026-07-05 Sun 10:28]
+:END:
 
 ** WIP [H0/Runway] Implement Staging Worker (org-staging component)
    :PROPERTIES:

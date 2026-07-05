@@ -53,23 +53,23 @@ actor "plaud_downloader" {
   ]
 
   capability "connect_to_browser" {
-    input_contract  = "BrowserConnectionConfig" # TODO
-    output_contract = ["BrowserConnection", "ConnectionError"] # TODO, TODO
+    input_contract  = "BrowserConnectionConfig"
+    output_contract = ["BrowserConnection", "ConnectionError"]
   }
 
   capability "fetch_audio_records_page" {
-    input_contract  = ["BrowserConnection", "FetchPageConfig"] # TODO, TODO
-    output_contract = ["HtmlPage", "FetchPageError"] # TODO, TODO
+    input_contract  = ["BrowserConnection", "FetchPageConfig"]
+    output_contract = ["HtmlPage", "FetchPageError"]
   }
 
   capability "save_page_html" {
-    input_contract  = "HtmlPage" # TODO
-    output_contract = ["SavePageResult", "SavePageError"] # TODO, TODO
+    input_contract  = "HtmlPage"
+    output_contract = ["SavePageResult", "SavePageError"]
   }
 
   capability "extract_records" {
-    input_contract  = ["HtmlPage", "ExtractionPolicy"] # TODO, TODO
-    output_contract = ["PlaudAudioRecordsList", "ExtractionError"] # TODO, TODO
+    input_contract  = ["HtmlPage", "ExtractionPolicy"]
+    output_contract = ["PlaudAudioRecordsList", "ExtractionError"]
   }
 }
 
