@@ -19,13 +19,20 @@
       (str seconds "s")
       (str minutes "m " seconds "s"))))
 
+(defn- pad-zero [n]
+  (let [s (str n)]
+    (if (= (count s) 1) (str "0" s) s)))
+
 (defn- ms->datetime-string
-  "Convert Unix milliseconds to 'YYYY-MM-DD HH:MM:SS' string."
+  "Convert Unix milliseconds to local-time 'YYYY-MM-DD HH:MM:SS' string."
   [ms]
-  (-> (js/Date. ms)
-      .toISOString
-      (s/replace #"T" " ")
-      (s/replace #"\..*Z?" "")))
+  (let [d (js/Date. ms)]
+    (str (.getFullYear d) "-"
+         (pad-zero (inc (.getMonth d))) "-"
+         (pad-zero (.getDate d)) " "
+         (pad-zero (.getHours d)) ":"
+         (pad-zero (.getMinutes d)) ":"
+         (pad-zero (.getSeconds d)))))
 
 (defn- api-record->record
   "Convert a JS API response item to the PlaudAudioRecordsList contract format."
@@ -196,16 +203,23 @@
       {:error   :download-failed
        :message (str "Failed to download file: " (.-message e))})))
 
+(defn- created->filename
+  "Convert datetime string to filesystem-safe filename.
+   '2026-07-01 21:46:39' -> '2026-07-01 21_46_39.mp3'"
+  [created]
+  (str (s/replace created #":" "_") ".mp3"))
+
 (defn ^:async download-recording-by-id
   "Downloads a single Plaud recording by its ID.
+   Names file by created datetime if record provided, otherwise by plaud-id.
    Step 1: Get temporary S3 URL via Plaud API.
-   Step 2: Download the file to {output-dir}/{plaud-id}.mp3.
+   Step 2: Download the file.
    Returns {:plaud-id ... :output-path ... :bytes-written N} or error map."
-  [^js page plaud-id output-dir]
+  [^js page plaud-id output-dir & {:keys [created]}]
   (let [temp-result (await (fetch-temp-url page plaud-id))]
     (if (:error temp-result)
       temp-result
-      (let [filename (str plaud-id ".mp3")
+      (let [filename (if created (created->filename created) (str plaud-id ".mp3"))
             out-path (str output-dir "/" filename)
             dl-result (await (download-file-from-url (:temp-url temp-result) out-path))]
         (if (:error dl-result)
@@ -237,22 +251,35 @@
           (do (tap> (str "OK " name " [" plaud-id "] (" (:bytes-written dl-result) " bytes)"))
               (assoc dl-result :plaud-id plaud-id)))))))
 
+(defn- resolve-existing-file
+  "Find an existing local file for a recording, checking both naming conventions.
+   Returns {:path string :stat fs.Stats} or nil if no file exists.
+   Checks datetime name first (current convention), then plaud-id name (legacy)."
+  [output-dir created plaud-id]
+  (let [dt-path    (str output-dir "/" (created->filename created))
+        plaud-path (str output-dir "/" plaud-id ".mp3")]
+    (or (when-let [st (try (.statSync fs dt-path) (catch js/Error _ nil))]
+          {:path dt-path :stat st})
+        (when-let [st (try (.statSync fs plaud-path) (catch js/Error _ nil))]
+          {:path plaud-path :stat st}))))
+
 (defn ^:async download-recording
   "Downloads a Plaud recording with ffprobe-based duplicate detection.
    Compares API duration-ms with local MP3 duration via ffprobe.
-   Names files by plaud-id: '8acb9405...mp3'.
-   Input: page, record map {:plaud-id ... :filesize ... :name ... :duration-ms ...}, output-dir
+   Names files by recording datetime: '2026-07-01 21_46_39.mp3'.
+   Also recognizes legacy plaud-id-named files from previous runs.
+   Input: page, record map {:plaud-id ... :filesize ... :name ... :duration-ms ... :created ...}, output-dir
    Returns {:plaud-id ... :output-path ... :bytes-written N :skipped? bool}"
-  [^js page {:keys [plaud-id filesize name duration-ms] :as record} output-dir]
-  (let [out-path   (str output-dir "/" plaud-id ".mp3")
-        local-stat (try (.statSync fs out-path) (catch js/Error _ nil))]
-    (if local-stat
-      (let [local-ms (mp3-duration-ms out-path)]
+  [^js page {:keys [plaud-id filesize name duration-ms created] :as record} output-dir]
+  (let [existing   (resolve-existing-file output-dir created plaud-id)
+        out-path   (or (:path existing) (str output-dir "/" (created->filename created)))]
+    (if existing
+      (let [local-ms (mp3-duration-ms (:path existing))]
         (if (and local-ms (<= (js/Math.abs (- local-ms duration-ms)) duration-tolerance-ms))
           (do (tap> (str "SKIP " name " [" plaud-id "] (" filesize " bytes, duration " local-ms "ms ~ API " duration-ms "ms)"))
               {:plaud-id      plaud-id
-               :output-path   out-path
-               :bytes-written (.-size local-stat)
+               :output-path   (:path existing)
+               :bytes-written (.-size (:stat existing))
                :skipped?      true})
           (do (tap> (str (if local-ms
                            (str "MISMATCH " name " [" plaud-id "] local-duration=" local-ms "ms api-duration=" duration-ms "ms -> re-download")
@@ -395,7 +422,9 @@
         (await (.goto page "https://web.plaud.ai" (clj->js {:timeout 15000})))
         (reset! atom-page page)
         (if plaud-id
-          (let [result (await (download-recording-by-id page plaud-id out-dir))]
+          (let [api-result (await (fetch-records-via-api page))
+                record     (some #(when (= (:plaud-id %) plaud-id) %) (:records api-result))
+                result     (await (download-recording-by-id page plaud-id out-dir :created (:created record)))]
             (tap> (if (:error result)
                                (str "ERROR " (:message result))
                                (str "DOWNLOADED " (:plaud-id result) " -> " (:output-path result)
