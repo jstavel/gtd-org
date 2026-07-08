@@ -107,6 +107,57 @@
   - specification.md §3: staging-worker operational logic
   - ~/org/h0_runway/org-staging.org: Staging Worker Architect Specification
 
+* Discussion History
+
+  The following artifacts capture the evolution of this RFC from initial
+  daily review through to the current proposal.
+
+  **Key Discussion Points (2026-07-05 to 2026-07-08)**
+
+  | Date       | Topic                                   | Artifact                        |
+  |------------+-----------------------------------------+---------------------------------|
+  | 2026-07-05 | Daily review, KAN-0001 status           | ~kanban.org~ (tracking)         |
+  | 2026-07-05 | workflow.hcl synced with implementation | ~workflow.hcl~                  |
+  | 2026-07-05 | Filesize dedup in download-recording    | ~core.cljs~ (e2af9ec)           |
+  | 2026-07-05 | ffprobe duration comparison             | ~core.cljs~ (ca0f0f1)           |
+  | 2026-07-05 | Human-centric tap output (name first)   | ~core.cljs~ (ca0f0f1)           |
+  | 2026-07-07 | Local time fix (UTC → CEST)             | ~core.cljs~ (8cb6b2e)           |
+  | 2026-07-07 | Dual naming convention resolver         | ~core.cljs~ (8cb6b2e)           |
+  | 2026-07-08 | cd --batch-limit, --output-dir          | ~core.cljs~ (parse-args)        |
+  | 2026-07-08 | ffprobe space-in-filename bug fix       | ~core.cljs~ (execFileSync)      |
+  | 2026-07-08 | ar --verbose flag                       | ~core.cljs~ (~-main~), kanban   |
+  | 2026-07-08 | mp3 suffix in tap output                | ~core.cljs~ (download-recording)|
+  | 2026-07-08 | RFC methodology added to CONTRIBUTING   | ~CONTRIBUTING.md~               |
+
+  **Design Evolution of Staging.org Entry**
+
+  - Initial idea: ~:CONFIRMED: yes~ property → simple but one-dimensional
+  - Discovered template in ~/org/h0_runway/org-staging.org~ with checkbox
+    decisions and explicit ~:CLEANUP:~ for destructive actions
+  - Evolved to three-way Decision: INGEST / REJECT / IGNORE
+  - Adopted ~:DECISION:~ as a formal drawer (like ~:LOGBOOK:~)
+  - Explored ID3 tag embedding for plaud-id metadata → rejected (SHA-256
+    mutation, duplicate file versions)
+  - Placed plaud-id in ~.plaud-mapping.json~ (external mapping, KAN-0001)
+
+  **Related RFEs and Future Slices**
+
+  - Short transcription preview (~:PREVIEW:~ via Gemini 2.5 Flash Lite)
+    → separate RFE in kanban.org, depends on M2/Slice 1
+  - Worker that reads ~:DECISION:~ and performs actions → Slice 3
+  - ~.plaud-mapping.json~ generation → KAN-0001 TODO item
+
+  **Archive: Raw Discussion Transcript**
+
+  The full discussion that led to this RFC spans two opencode sessions
+  (2026-07-05 and 2026-07-08) and is preserved in the git history of
+  the repository. Key commits:
+
+  - e2af9ec: feat(plaud-downloader): reflect actual implementation in workflow
+  - ca0f0f1: refactor(plaud-downloader): replace filesize dedup with ffprobe
+  - 8cb6b2e: fix(plaud-downloader): use local time for filenames
+  - 083f7b5: docs(rfc): add RFC 0001
+
 * Open Questions
 
   - Should the worker append a new :LOGBOOK: entry when it performs an
