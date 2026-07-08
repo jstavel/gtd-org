@@ -11,6 +11,8 @@ Implementation is considered a downstream artifact derived from specifications.
 Preferred order:
 
 ```text
+RFC (optional)
+    ↓
 Use Cases
     ↓
 Actors
@@ -34,6 +36,31 @@ Implementation
 
 ---
 
+## RFC (Request for Comments)
+
+RFCs are lightweight, informal design documents used to explore and clarify
+ideas before formalizing them into use cases. They serve as:
+
+- **Brain dumps:** capture raw discussion, alternatives, and trade-offs
+- **Design spaces:** explore a problem without committing to a specific solution
+- **Team alignment:** get feedback before investing in formal specification
+
+RFCs are optional. When the story is clear from the start, proceed directly to
+use cases. When ideas are still forming, write an RFC first.
+
+An RFC should contain:
+
+- **Title** — what is being proposed
+- **Problem** — why this matters
+- **Proposal** — the idea
+- **Alternatives** — what else was considered
+- **Open questions** — what needs discussion
+
+RFCs are stored in `docs/rfc/` and serve as raw material from which use
+cases, actors, capabilities, and contracts are later derived.
+
+---
+
 # Core Concepts
 
 ## Use Case
@@ -44,7 +71,8 @@ Use cases answer:
 
 > What problem does the system solve?
 
-Use cases are the starting point of all design work.
+Use cases are the primary starting point of design work. For complex or novel
+features, an RFC may precede the use case to capture design discussion.
 
 ---
 

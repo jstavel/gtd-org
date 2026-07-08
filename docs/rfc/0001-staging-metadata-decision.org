@@ -1,0 +1,124 @@
+#+TITLE: RFC 0001 — Staging.org Metadata Format & Decision Drawer
+#+DATE: [2026-07-08 Tue]
+#+STATUS: Discussion
+
+* Problem
+  After Plaud audio recordings are downloaded to ~/Downloads, there is no
+  structured way for the user to decide which recordings should enter the
+  digital assets system. The current scan-and-stage-downloads function
+  writes minimal metadata (:HASH: and :SOURCE: only), providing no
+  information about the recording's content or date. The user has to open
+  each MP3 file to decide whether to ingest it.
+
+* Proposal
+  Extend scan-and-stage-downloads with technical metadata from the filename
+  and ffprobe, and introduce a formal :DECISION: drawer in staging.org for
+  the user to confirm actions.
+
+** Metadata Properties
+
+  | Property     | Source                  | Purpose                                  |
+  |--------------+-------------------------+------------------------------------------|
+  | :HASH:       | SHA-256 of file         | Content identity                         |
+  | :PLAUD-ID:   | .plaud-mapping.json     | Link to Plaud API record (future slice)  |
+  | :CREATED:    | Regex from filename     | Recording date (YYYY-MM-DD)              |
+  | :DURATION:   | ffprobe                 | Length (MM:SS)                           |
+  | :BITRATE:    | ffprobe                 | Audio quality (e.g. 128k)               |
+  | :SOURCE:     | Filesystem path         | Original location in Downloads           |
+  | :SYNOPSIS:   | Empty, user fills later | Human summary after listening            |
+  | :CLEANUP:    | Empty, user fills       | Confirmation text for REJECT (see below) |
+  | :KIND:       | Fixed string            | "Plaud-voice-record"                     |
+
+** Decision Drawer
+
+  A formal ~:DECISION:~ drawer (parallel to ~:PROPERTIES:~ and ~:LOGBOOK:~)
+  contains three checkboxes:
+
+  - [ ] INGEST  — move file to assets/objects/<UUID>/raw/
+  - [ ] REJECT  — delete file from Downloads
+  - [ ] IGNORE  — keep file in Downloads, remove from TODO
+
+** Explicit Confirmation for Destructive Actions
+
+  REJECT requires an explicit confirmation text in the ~:CLEANUP:~ property
+  (e.g. "Yes, delete it"). This prevents accidental deletion. INGEST does
+  not require confirmation text since it is non-destructive (file is moved,
+  not deleted).
+
+  If ~:CLEANUP:~ is empty or does not match the expected text, the worker
+  will not delete the file.
+
+** Staging.org Entry Template
+
+#+BEGIN_SRC org
+* TODO [12 min] 2026-07-07 16_53_06.mp3
+  :PROPERTIES:
+  :HASH:       a1b2c3d4e5f6...
+  :PLAUD-ID:   
+  :CREATED:    2026-07-07
+  :DURATION:   04:45
+  :BITRATE:    128k
+  :SOURCE:     ~/Downloads/2026-07-07 16_53_06.mp3
+  :SYNOPSIS:   
+  :CLEANUP:
+  :KIND:       Plaud-voice-record
+  :END:
+  :DECISION:
+  - [ ] INGEST  (Přesunout do assets/objects/UUID/)
+  - [ ] REJECT  (Smazat z Downloads)
+  - [ ] IGNORE  (Nechat v Downloads, vyjmout z TODO)
+  :END:
+  :LOGBOOK:
+  - [2026-07-08 Tue 15:30] Auto-detected by Staging Worker.
+  :END:
+#+END_SRC
+
+* Alternatives Considered
+
+** ~:CONFIRMED: yes~ property instead of checkbox decisions
+   Simpler but less expressive. A single confirmation property cannot
+   distinguish between INGEST, REJECT, and IGNORE actions.
+
+** ID3 tag embedding
+   Writing plaud-id and metadata directly into MP3 ID3v2 tags was considered
+   but rejected because:
+   - Changes the file, altering the SHA-256 hash
+   - Creates two versions of the same file (manually vs. automatically
+     downloaded)
+   - plaud-id must still exist in an external mapping for lookup
+
+** Plaud-ID in Properties
+   :PLAUD-ID: is included as an empty placeholder. The plaud-downloader
+   component will eventually maintain a ~.plaud-mapping.json~ mapping of
+   plaud-id to local filename. The staging worker will read this mapping
+   in a future slice. For the first slice, this property remains empty.
+
+* Scope Limits (What is NOT in this RFC)
+
+  - Short transcription preview via Gemini (separate RFE in kanban)
+  - Worker that reads :DECISION: and performs actions (Slice 3)
+  - .plaud-mapping.json generation (KAN-0001 TODO)
+  - Asset UUID generation and directory structure (ADR-0008)
+
+* Dependencies
+
+  - ADR-0005: Asset Storage Invariants and Human-in-the-Loop Ingestion
+  - ADR-0008: Asset Storage Architecture and Pipeline Structure
+  - specification.md §3: staging-worker operational logic
+  - ~/org/h0_runway/org-staging.org: Staging Worker Architect Specification
+
+* Open Questions
+
+  - Should the worker append a new :LOGBOOK: entry when it performs an
+    action (e.g. "Moved to assets/objects/ab/cd/<UUID>/raw/")?
+  - DURATION format: MM:SS (as in template) or "Xm Xs" (human readable)?
+  - Should the TODO headline include duration (e.g. "[12 min]") as the
+    template suggests?
+
+* Derived Artifacts (After RFC Approval)
+
+  1. Use Case: "Staging Worker Metadata Enrichment"
+  2. Contracts: MetadataEnrichmentInput, StagingOrgEntry
+  3. Capability: enrich-metadata in staging-worker actor
+  4. Implementation: Slice 2 in org-staging/core.clj
+  5. Tests: date extraction, ffprobe duration, org-entry generation
