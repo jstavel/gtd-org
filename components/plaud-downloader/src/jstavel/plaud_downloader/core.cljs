@@ -232,7 +232,7 @@
   "Read MP3 duration (milliseconds) via ffprobe. Returns nil on failure."
   [file-path]
   (try
-    (let [result (.execSync cp (str "ffprobe -v error -show_entries format=duration -of csv=p=0 " file-path))
+    (let [result (.execFileSync cp "ffprobe" #js["-v" "error" "-show_entries" "format=duration" "-of" "csv=p=0" file-path])
           secs   (js/parseFloat (.toString result "utf8"))]
       (when (pos? secs) (long (* secs 1000))))
     (catch js/Error _ nil)))
@@ -242,13 +242,13 @@
   [^js page {:keys [plaud-id name]} out-path]
   (let [temp-result (await (fetch-temp-url page plaud-id))]
     (if (:error temp-result)
-      (do (tap> (str "ERROR temp-url " name " [" plaud-id "]: " (:message temp-result)))
+      (do (tap> (str "ERROR temp-url " name ".mp3 [" plaud-id "]: " (:message temp-result)))
           temp-result)
       (let [dl-result (await (download-file-from-url (:temp-url temp-result) out-path))]
         (if (:error dl-result)
-          (do (tap> (str "ERROR download " name " [" plaud-id "]: " (:message dl-result)))
+          (do (tap> (str "ERROR download " name ".mp3 [" plaud-id "]: " (:message dl-result)))
               dl-result)
-          (do (tap> (str "OK " name " [" plaud-id "] (" (:bytes-written dl-result) " bytes)"))
+          (do (tap> (str "OK " name ".mp3 [" plaud-id "] (" (:bytes-written dl-result) " bytes)"))
               (assoc dl-result :plaud-id plaud-id)))))))
 
 (defn- resolve-existing-file
@@ -276,16 +276,16 @@
     (if existing
       (let [local-ms (mp3-duration-ms (:path existing))]
         (if (and local-ms (<= (js/Math.abs (- local-ms duration-ms)) duration-tolerance-ms))
-          (do (tap> (str "SKIP " name " [" plaud-id "] (" filesize " bytes, duration " local-ms "ms ~ API " duration-ms "ms)"))
+          (do (tap> (str "SKIP " name ".mp3 [" plaud-id "] (" filesize " bytes, duration " local-ms "ms ~ API " duration-ms "ms)"))
               {:plaud-id      plaud-id
                :output-path   (:path existing)
                :bytes-written (.-size (:stat existing))
                :skipped?      true})
           (do (tap> (str (if local-ms
-                           (str "MISMATCH " name " [" plaud-id "] local-duration=" local-ms "ms api-duration=" duration-ms "ms -> re-download")
-                           (str "BROKEN " name " [" plaud-id "] ffprobe FAIL -> re-download"))))
+                            (str "MISMATCH " name ".mp3 [" plaud-id "] local-duration=" local-ms "ms api-duration=" duration-ms "ms -> re-download")
+                            (str "BROKEN " name ".mp3 [" plaud-id "] ffprobe FAIL -> re-download"))))
               (await (download-and-report page record out-path)))))
-      (do (tap> (str "DOWNLOAD " name " [" plaud-id "] ..."))
+      (do (tap> (str "DOWNLOAD " name ".mp3 [" plaud-id "] ..."))
           (await (download-and-report page record out-path))))))
 
 (declare fetch-records-via-api)
@@ -394,29 +394,48 @@
                            save-result)))))))))))
 
 (defn- parse-args
-  "Parse CLI arguments. Returns {:plaud-id ... :batch-limit ...}"
+  "Parse CLI arguments. Returns {:plaud-id ... :batch-limit ... :output-dir ... :verbose ...}"
   [args]
   (loop [remaining args
          batch-limit nil
+         output-dir  nil
+         verbose     false
          positional  []]
     (if (empty? remaining)
       {:plaud-id    (first positional)
-       :batch-limit batch-limit}
+       :batch-limit batch-limit
+       :output-dir  output-dir
+       :verbose     verbose}
       (case (first remaining)
         "--batch-limit" (recur (drop 2 remaining)
                                (js/parseInt (second remaining))
+                               output-dir
+                               verbose
+                               positional)
+        "--output-dir"  (recur (drop 2 remaining)
+                               batch-limit
+                               (second remaining)
+                               verbose
+                               positional)
+        "--verbose"     (recur (rest remaining)
+                               batch-limit
+                               output-dir
+                               true
                                positional)
         (recur (rest remaining)
                batch-limit
+               output-dir
+               verbose
                (conj positional (first remaining)))))))
 
 (defn ^:async -main [& args]
-  (let [{:keys [plaud-id batch-limit]} (parse-args args)
-        home        (aget js/process.env "HOME")
-        out-dir     (str home "/Downloads")
-        conn        (await (connect-to-browser {:endpoint "http://localhost:9222"}))]
+  (let [{:keys [plaud-id batch-limit output-dir verbose]} (parse-args args)
+        _         (when verbose (add-tap (fn [v] (println v))))
+        home      (aget js/process.env "HOME")
+        out-dir   (or output-dir (str home "/Downloads"))
+        conn      (await (connect-to-browser {:endpoint "http://localhost:9222"}))]
     (if (:error conn)
-      (tap> (str "ERROR Connection failed: " (pr-str (:error conn))))
+      (println (str "ERROR Connection failed: " (pr-str (:error conn))))
       (let [^js ctx  (:context conn)
             ^js page (await (.newPage ctx))]
         (await (.goto page "https://web.plaud.ai" (clj->js {:timeout 15000})))
@@ -425,14 +444,14 @@
           (let [api-result (await (fetch-records-via-api page))
                 record     (some #(when (= (:plaud-id %) plaud-id) %) (:records api-result))
                 result     (await (download-recording-by-id page plaud-id out-dir :created (:created record)))]
-            (tap> (if (:error result)
-                               (str "ERROR " (:message result))
-                               (str "DOWNLOADED " (:plaud-id result) " -> " (:output-path result)
-                                    " (" (:bytes-written result) " bytes)"))))
+            (println (if (:error result)
+                       (str "ERROR " (:message result))
+                       (str "DOWNLOADED " (:plaud-id result) " -> " (:output-path result)
+                            " (" (:bytes-written result) " bytes)"))))
           (let [{:keys [downloaded skipped errors stopped-by]} (await (download-all-new-recordings page out-dir :batch-limit batch-limit))]
-            (tap> (str "BATCH COMPLETE: " downloaded " downloaded, " skipped " skipped"
-                                  (when stopped-by " (stopped by batch-limit)")
-                                  ", " (count errors) " errors")))))))
+            (println (str "BATCH COMPLETE: " downloaded " downloaded, " skipped " skipped"
+                          (when stopped-by " (stopped by batch-limit)")
+                          ", " (count errors) " errors")))))))
   (.on js/process "SIGINT" #(js/process.exit 0))
   nil)
 
