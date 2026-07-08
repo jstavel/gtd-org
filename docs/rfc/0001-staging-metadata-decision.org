@@ -64,9 +64,9 @@
   :KIND:       Plaud-voice-record
   :END:
   :DECISION:
-  - [ ] INGEST  (Přesunout do assets/objects/UUID/)
-  - [ ] REJECT  (Smazat z Downloads)
-  - [ ] IGNORE  (Nechat v Downloads, vyjmout z TODO)
+  - [ ] INGEST  (Move to assets/objects/UUID/)
+  - [ ] REJECT  (Delete from Downloads)
+  - [ ] IGNORE  (Keep in Downloads, remove from TODO)
   :END:
   :LOGBOOK:
   - [2026-07-08 Tue 15:30] Auto-detected by Staging Worker.
@@ -132,7 +132,7 @@
   **Design Evolution of Staging.org Entry**
 
   - Initial idea: ~:CONFIRMED: yes~ property → simple but one-dimensional
-  - Discovered template in ~/org/h0_runway/org-staging.org~ with checkbox
+  - Discovered template in ~~/org/h0_runway/org-staging.org~ with checkbox
     decisions and explicit ~:CLEANUP:~ for destructive actions
   - Evolved to three-way Decision: INGEST / REJECT / IGNORE
   - Adopted ~:DECISION:~ as a formal drawer (like ~:LOGBOOK:~)
@@ -158,13 +158,39 @@
   - 8cb6b2e: fix(plaud-downloader): use local time for filenames
   - 083f7b5: docs(rfc): add RFC 0001
 
-* Open Questions
+* Open Questions → Resolved (2026-07-08)
 
-  - Should the worker append a new :LOGBOOK: entry when it performs an
-    action (e.g. "Moved to assets/objects/ab/cd/<UUID>/raw/")?
-  - DURATION format: MM:SS (as in template) or "Xm Xs" (human readable)?
-  - Should the TODO headline include duration (e.g. "[12 min]") as the
-    template suggests?
+  **1. Should the worker append a new :LOGBOOK: entry for each action?**
+  *Answer: Yes.*
+
+  *Rationale:* Every worker action (INGEST, REJECT, IGNORE) must be recorded
+  in the ~:LOGBOOK:~ drawer for full traceability and transparency. The
+  staging.org file serves as both a decision panel and an audit log. Example:
+
+  :LOGBOOK:
+  - [2026-07-08 Tue 15:30] Auto-detected by Staging Worker.
+  - [2026-07-08 Tue 16:00] Decision: INGEST. Moved to assets/objects/ab/cd/<UUID>/raw/
+  :END:
+
+  **2. DURATION format: MM:SS or "Xm Xs"?**
+  *Answer: MM:SS (e.g. ~04:45~).*
+
+  *Rationale:* FFmpeg/ffprobe uses this format natively (~-show_entries
+  format=duration~ outputs seconds as a float). Converting to ~H:MM:SS~ or
+  ~MM:SS~ is a standard transformation. The template in
+  ~/org/h0_runway/org-staging.org~ also uses ~[00:00]~. Consistency with
+  ffmpeg tooling avoids unnecessary format conversions.
+
+  **3. Should the TODO headline include duration (e.g. "[12 min]")?**
+  *Answer: Yes.*
+
+  *Rationale:* The headline is always visible — even when the
+  ~:PROPERTIES:~ and ~:DECISION:~ drawers are folded. Duration is the most
+  important signal for triage: a 2-minute note vs. a 2-hour meeting. Seeing
+  it immediately at the headline level lets the user decide without
+  expanding every entry. Format: whole minutes, rounded up (ffprobe
+  seconds → ceiling to minutes). Example: ~* TODO [12 min] 2026-07-07
+  16_53_06.mp3~
 
 * Derived Artifacts (After RFC Approval)
 
