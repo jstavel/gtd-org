@@ -80,18 +80,56 @@
    distinguish between INGEST, REJECT, and IGNORE actions.
 
 ** ID3 tag embedding
-   Writing plaud-id and metadata directly into MP3 ID3v2 tags was considered
-   but rejected because:
-   - Changes the file, altering the SHA-256 hash
-   - Creates two versions of the same file (manually vs. automatically
-     downloaded)
-   - plaud-id must still exist in an external mapping for lookup
+   Writing plaud-id and metadata directly into MP3 ID3v2 tags was initially
+   considered and set aside. Upon further discussion, the decision is:
+
+   *Deferred, not rejected.* ID3 tagging has strong advantages that will be
+   evaluated after the core ingestion pipeline stabilizes (Slices 1–3).
+
+   Advantages over ~.plaud-mapping.json~:
+
+   - **Same toolchain:** ffprobe is already invoked for duration and bitrate
+     extraction. Reading plaud-id from an ID3 tag is just a different
+     ~-show_entries~ flag — no new file format, no JSON parsing. Compared
+     to ~.plaud-mapping.json~, ID3 eliminates an external dependency.
+
+   - **Per-file metadata travels with the file:** If the MP3 is shared,
+     moved, or archived, the plaud-id stays embedded. A ~.json~ mapping
+     file can be lost or drift out of sync.
+
+   - **Self-identifying downloads:** When plaud-downloader writes plaud-id
+     into ID3 at download time, automatically downloaded files are
+     self-identifying. Manually downloaded files (no ID3 tag) will have an
+     empty ~:PLAUD-ID:~ property in staging.org, clearly marking them for
+     human matching via ~:PREVIEW:~ transcription.
+
+   - **Archival resilience:** In 10–20 years, the MP3 will still be
+     readable. The ~.plaud-mapping.json~ file may not exist.
+
+   Concerns and mitigation:
+
+   - *SHA-256 mutation:* Hash identity is computed before tagging (on raw
+     bytes). After INGEST, the file lives in ~assets/objects/<UUID>/raw/~
+     where UUID is the canonical identity — hash mutation is irrelevant.
+
+   - *Two file versions:* Applies only if tagging happens pre-ingest on
+     the Downloads original. Post-ingest tagging (on the archived copy)
+     creates no duplication.
+
+   - *Same-timestamp collisions:* Two recordings can share a timestamp. A
+     manually downloaded file without ID3 cannot be auto-matched. This
+     is a human triage problem that ~:PREVIEW:~ transcription addresses —
+     not a weakness of ID3 specifically.
 
 ** Plaud-ID in Properties
-   :PLAUD-ID: is included as an empty placeholder. The plaud-downloader
-   component will eventually maintain a ~.plaud-mapping.json~ mapping of
-   plaud-id to local filename. The staging worker will read this mapping
-   in a future slice. For the first slice, this property remains empty.
+   :PLAUD-ID: is included as an empty placeholder. For the first slice,
+   this property remains empty. Future slices will populate it from one
+   of two sources (to be evaluated):
+
+   - ID3 tag embedded by plaud-downloader (preferred — self-contained,
+     same ffprobe toolchain)
+   - ~.plaud-mapping.json~ mapping maintained by plaud-downloader
+     (compatible with non-tagged files)
 
 * Scope Limits (What is NOT in this RFC)
 
@@ -136,9 +174,13 @@
     decisions and explicit ~:CLEANUP:~ for destructive actions
   - Evolved to three-way Decision: INGEST / REJECT / IGNORE
   - Adopted ~:DECISION:~ as a formal drawer (like ~:LOGBOOK:~)
-  - Explored ID3 tag embedding for plaud-id metadata → rejected (SHA-256
-    mutation, duplicate file versions)
-  - Placed plaud-id in ~.plaud-mapping.json~ (external mapping, KAN-0001)
+  - Explored ID3 tag embedding for plaud-id metadata → initially rejected
+    (SHA-256 mutation, duplicate file versions), then reconsidered.
+    Deferred to future slice due to strong archival and self-containment
+    advantages. ID3 is the preferred plaud-id carrier over
+    ~.plaud-mapping.json~ because ffprobe is already in the toolchain.
+  - Placed plaud-id in ~.plaud-mapping.json~ as fallback for
+    non-tagged files (KAN-0001)
 
   **Related RFEs and Future Slices**
 
