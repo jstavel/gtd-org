@@ -1,5 +1,59 @@
 #+TITLE: gtd-org Project Kanban
 * Backlog
+** RFE Short transcription preview in staging.org for ingest triage
+   When scan-and-stage-downloads registers a new TODO entry in staging.org,
+   it should include a short transcription preview of the audio content.
+   This allows the user to quickly decide whether to ingest or skip without
+   opening the audio file.
+
+   Flow:
+   1. ffmpeg extracts first 10 seconds of the MP3
+   2. Gemini 2.5 Flash Lite transcribes the clip
+   3. Transcription is stored as :PREVIEW: property in the staging.org entry
+
+   User sees:
+   * TODO 2026-07-07 16:53:06.mp3
+     :PROPERTIES:
+     :PREVIEW:  "Okay, so the shopping list for Tuesday..."
+     :END:
+
+   Dependencies:
+   - Gemini API access (M2/Slice 1)
+   - ffmpeg installed locally (already available via ffprobe)
+
+   RFC: 10-Second Audio Preview for Ingestion Triage (discussion open)
+** DONE BUG Filenames with spaces break ffprobe in mp3-duration-ms
+   Filenames like "2026-07-01 21_46_39.mp3" contain a space between date and
+   time. mp3-duration-ms passed them unquoted to execSync, so ffprobe received
+   a split path ("Downloads/2026-07-01" and "21_46_39.mp3" as separate args).
+   This caused false BROKEN status and unnecessary re-downloads on every file.
+
+   Symptoms:
+   - "Argument '21_46_39.mp3' provided as input filename, but
+     '/home/.../Downloads/2026-07-01' was already specified."
+   - "BROKEN ... ffprobe FAIL -> re-download" on files that are actually
+     healthy. Every file was affected — all filenames have a space in them.
+
+   Fix: replaced execSync (shell string) with execFileSync (argv array):
+     (.execFileSync cp "ffprobe" #js["-v" "error" ... file-path])
+   The argv array goes directly to ffprobe — the shell never sees it,
+   so spaces in paths are handled correctly.
+** RFE Improve CDP connection error message with actionable hints
+   When Chromium is not running with remote debugging enabled, the current error
+   "ERROR Connection failed: :connection-refused" is unhelpful. It should tell the user:
+   - The exact CDP endpoint it tried to connect to (e.g. http://localhost:9222)
+   - How to start Chromium with CDP (e.g. chromium --remote-debugging-port=9222)
+** DONE RFE Add --verbose flag to control stdout output
+:LOGBOOK:
+- State "NEXT"       from "WIP"        [2026-07-08 Wed 18:45]
+- State "WIP"        from "NEXT"       [2026-07-08 Wed 18:45]
+- State "NEXT"       from "TODO"       [2026-07-08 Wed 18:45]
+:END:
+   Currently tap> always prints to stdout via add-tap/println.
+   Replace with user-friendly --verbose flag:
+   - Default (no --verbose): silent, errors only
+   - --verbose: enable progress lines (SKIP, DOWNLOAD, OK, BATCH, PROGRESS)
+   Implementation: parse --verbose in parse-args, conditionally add-tap in -main.
 ** TODO [H0/Runway] copy ADR-0008 into main source of the truth: ~/org/docs/adr
 - the hiearchy of the assets directory was changed
 ** TODO [H0/Runway] refactor code to replace all Files usage by babashka.fs
@@ -40,6 +94,7 @@ Skript slouzi ke stahovani audio zaznamu z web.plaud.ai.
 **** DONE save_page_html (fallback)
 **** DONE extract_records (fallback - HTML parsovani)
 **** DONE Unit + integration testy
+
 *** WIP Stahovani audio zaznamu do lokalniho pocitace
 :LOGBOOK:
 - State "WIP"        from "NEXT"       [2026-07-05 Sun 19:14]
@@ -59,7 +114,7 @@ Skript slouzi ke stahovani audio zaznamu z web.plaud.ai.
      - download-recording – dedup podle filesize (fs/statSync .size)
      - download-all-new-recordings – projde vsechny API zaznamy, stahne jen nove
      - .plaud-mapping.json – evidence plaud-id -> filename
-**** TODO Matching podle ffprobe/duration (dalsi usecase)
+**** DONE Matching podle ffprobe/duration
 
 ** WIP [H0/Runway] Implement Staging Worker (org-staging component)
    :PROPERTIES:
