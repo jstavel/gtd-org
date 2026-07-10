@@ -22,8 +22,9 @@ actor "watcher" {
 actor "metadata_provider" {
     capabilities = ["calculate_hash", "extract_metadata"]
     capability "extract_metadata" {
-	# Contract represents the schema for the file record data structure to extract metadata from.
-	contract = "FileRecordForMetadataExtractionSchema"
+	# Contract represents the enriched metadata extracted from a file
+	# (date from filename, duration/bitrate from ffprobe).
+	contract = "EnrichedRecordSchema"
     }
     capability "calculate_hash" {
 	# Contract represents the schema for the file content/path required for hash calculation.
@@ -39,8 +40,8 @@ actor "orchestrator" {
 	contract = "RecordHashInputSchema"
     }
     capability "write_record" {
-	# Contract represents the schema for the full record structure to be written to staging.org.
-	contract = "StagingOrgRecordSchema"
+	# Contract represents the enriched staging.org entry with Decision drawer and LOGBOOK.
+	contract = "EnrichedStagingOrgEntrySchema"
     }
 }
 
