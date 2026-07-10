@@ -1,0 +1,19 @@
+{:paths ["components/org-staging/src" "components/fp/src"]
+ :deps {babashka/nrepl-client {:git/url "https://github.com/babashka/nrepl-client"
+                                 :git/sha "19fbef2525e47d80b9278c49a545de58f48ee7cf"}
+        com.taoensso/timbre {:mvn/version "6.8.0"}}
+ :tasks {org-staging {:doc "Scan ~/Downloads for new MP3s and register in ~/org/staging.org"
+                      :requires ([jstavel.org-staging.core :as staging])
+                      :task (staging/-main)}
+         eval {:doc "Eval kodu v běžícím shadow-cljs nREPL"
+               :requires ([babashka.nrepl-client :as nrepl]
+                          [babashka.fs :as fs]
+                          [clojure.string :as str])
+               :task (let [port-file ".shadow-cljs/nrepl.port"
+                           port (if (fs/exists? port-file)
+                                  (Integer/parseInt (str/trim (slurp port-file)))
+                                  (do (println "Error: nrepl.port nenalezen. Běží shadow-cljs?")
+                                      (System/exit 1)))
+                           expr (first *command-line-args*)]
+                       (let [values (:vals (nrepl/eval-expr {:port port :expr expr}))]
+                         (run! println values)))}}}
