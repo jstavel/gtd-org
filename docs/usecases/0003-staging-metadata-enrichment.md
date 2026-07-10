@@ -6,7 +6,7 @@
 
 ### 1. Actors
 
-- **Watcher:** Scans `~/Downloads/` for new `.mp3` files and initiates the pipeline.
+- **Watcher:** Scans `~/Downloads/` for new `.mp3` files (flat, non-recursive — only top-level) and initiates the pipeline.
 - **Metadata Provider:** Extracts technical metadata from filename (date) and ffprobe (duration, bitrate).
 - **Orchestrator:** Checks for duplicates, writes enriched TODO entries to `staging.org`.
 

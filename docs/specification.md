@@ -85,7 +85,7 @@ When processing files from `~/Downloads/`, the worker must prioritize informatio
 The `staging-worker` is a Babashka-based automation utility responsible for the transition of assets from the `Downloads` transit zone into the `org-assets` management system.
 
 #### Operational Logic
-1. **Scanning:** Monitor `$ORG_ROOT/Downloads/` for files (specifically `.mp3` and media formats).
+1. **Scanning:** Monitor `$ORG_ROOT/Downloads/` for files (specifically `.mp3` and media formats). Scanning is **flat — non-recursive**; only files directly in the top-level `Downloads/` directory are discovered. Nested subdirectories are ignored.
 2. **Metadata Inspection:**
    - Execute `ffprobe` to obtain technical metadata (duration, codec).
    - Attempt ID3 tag extraction.
