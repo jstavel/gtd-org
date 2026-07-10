@@ -59,7 +59,23 @@
    Impact:
    - scan-and-stage-downloads-already-ingested-test fails
    - build-asset-index-valid-structure-test fails
-   - Affected tests: 2 failures
+    - Affected tests: 2 failures
+** TODO BUG fp/list-audio-files uses Files/walk — recursive when flat required
+   Per specification §3.1 and use case 0003, Downloads scanning must be flat
+   (non-recursive) — only files directly in the top-level Downloads/ directory.
+   However, fp/list-audio-files uses `Files/walk` which recurses into all
+   nested subdirectories.
+
+   Impact:
+   - Files in nested dirs (e.g. Downloads/foo/bar.mp3) are incorrectly picked up
+   - Subdirectories meant for archiving (e.g. Downloads/old/) leak into staging
+   - Violates spec: "Nested subdirectories are ignored"
+
+   Fix options:
+   - Add a flat-only `list-files` to fp component using `Files/list`
+   - Or add a `:max-depth` parameter to `list-audio-files` (default 1 for Downloads)
+   - Prefer: separate `list-files-flat` for clarity — Downloads is a special case
+   Ref: docs/specification.md §3.1, docs/usecases/0003-staging-metadata-enrichment.md §1
 ** RFE Improve CDP connection error message with actionable hints
    When Chromium is not running with remote debugging enabled, the current error
    "ERROR Connection failed: :connection-refused" is unhelpful. It should tell the user:
