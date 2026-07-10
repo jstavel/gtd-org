@@ -34,10 +34,32 @@
    - "BROKEN ... ffprobe FAIL -> re-download" on files that are actually
      healthy. Every file was affected — all filenames have a space in them.
 
-   Fix: replaced execSync (shell string) with execFileSync (argv array):
-     (.execFileSync cp "ffprobe" #js["-v" "error" ... file-path])
-   The argv array goes directly to ffprobe — the shell never sees it,
-   so spaces in paths are handled correctly.
+    Fix: replaced execSync (shell string) with execFileSync (argv array):
+      (.execFileSync cp "ffprobe" #js["-v" "error" ... file-path])
+    The argv array goes directly to ffprobe — the shell never sees it,
+    so spaces in paths are handled correctly.
+** TODO BUG read-staging-org regex fails to match TODO headlines with trailing content
+   In read-staging-org (jstavel/org-staging/core.clj), the pattern #"\* TODO"
+   is passed to re-matches, which requires full-string match. Headlines like
+   "* TODO ingested.mp3" or "* TODO pending.mp3  :;" fail because re-matches
+   does not match partial strings. re-find should be used instead.
+
+   Impact:
+   - read-staging-org returns empty set from staging.org entries
+   - Hash extraction tests fail (7 failures in total)
+   - scan-and-stage-downloads cannot detect already-staged files → no idempotency
+   - All hash-related tests show "-" prefix on expected strings
+
+   Fix: replace re-matches with re-find in the hash-extraction pipeline.
+** TODO BUG build-asset-index returns {} in test environments
+   When running under tests, build-asset-index returns an empty map even when
+   valid asset structure is present on disk. This causes scan-and-stage-downloads
+   to treat already-ingested files as new, re-adding them to staging.org.
+
+   Impact:
+   - scan-and-stage-downloads-already-ingested-test fails
+   - build-asset-index-valid-structure-test fails
+   - Affected tests: 2 failures
 ** RFE Improve CDP connection error message with actionable hints
    When Chromium is not running with remote debugging enabled, the current error
    "ERROR Connection failed: :connection-refused" is unhelpful. It should tell the user:
