@@ -123,6 +123,10 @@ Skript slouzi ke stahovani audio zaznamu z web.plaud.ai.
    :REUSES: fp component
    :END:
    - **Goal:** Orchestrate the initial capture and preparation of raw assets from local sources (~~/Downloads~) into a structured staging area (`assets/objects/UUID/raw/`).
+   - **Status:** RFC 0001 completed (docs/rfc/0001-staging-metadata-decision.org).
+     Metadata format, Decision drawer, and properties agreed.
+   - **Next step:** Extract minimal use case from RFC 0001.
+     -> done, see docs/usecases/0003-staging-metadata-enrichment.md
    - **Reconciliation Logic:** Scan ~~/Downloads~, calculate SHA-256 (using `fp`), check against `assets/objects/` and `staging.org`.
    - **Action:** If known, ignore. If unknown, create `TODO` in `staging.org` with metadata.
    - **Implementation Steps (from Architect Spec):**
@@ -131,6 +135,7 @@ Skript slouzi ke stahovani audio zaznamu z web.plaud.ai.
      - [ ] Implement Org-mode parser for `staging.org` (property manipulation).
      - [ ] Implement core loop: Detect -> Hash -> Check (assets/staging) -> Log/Update.
    :LOGBOOK:
+   - [2026-07-08 Wed] RFC 0001 completed: staging.org metadata format & decision drawer.
    - State "WIP"        from "NEXT"       [2026-06-01 Mon 13:53]
    - State "NEXT"       from "TODO"       [2026-06-01 Mon 13:53]
    - [2026-06-03 Wed] Created this task representing the main M1 implementation.
