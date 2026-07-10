@@ -1,5 +1,9 @@
 #kaocha/v1
 {:tests [{:id :downloads-cleaner
           :test-paths ["components/downloads-cleaner/test"]}
+         {:id :org-staging
+          :test-paths ["components/org-staging/test"]}
+         {:id :fp
+          :test-paths ["components/fp/test"]}
          ]
  }

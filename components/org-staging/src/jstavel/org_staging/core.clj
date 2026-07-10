@@ -273,5 +273,22 @@
                                            "audio-file")
                           :logbook-line  (logbook-timestamp)}
                 org-entry (generate-org-entry metadata)]
-            (log/info "New" (:kind metadata) "found, adding to staging.org:" filename)
-            (append-to-staging-org staging-org-path org-entry)))))))
+             (log/info "New" (:kind metadata) "found, adding to staging.org:" filename)
+             (append-to-staging-org staging-org-path org-entry)))))))
+
+(defn -main
+  "CLI entry point for the staging worker.
+   Scans ~/Downloads for new MP3 files and registers them in staging.org.
+   Environment variable ORG_ROOT overrides the default ~/org/ directory."
+  [& _args]
+  (let [home       (System/getProperty "user.home")
+        org-root   (or (System/getenv "ORG_ROOT") (str home "/org"))
+        downloads   (java.nio.file.Path/of (str home "/Downloads") (into-array String []))
+        assets-obj  (java.nio.file.Path/of (str org-root "/assets/objects") (into-array String []))
+        staging-org (java.nio.file.Path/of (str org-root "/staging.org") (into-array String []))]
+    (println "Staging Worker — scanning for new assets")
+    (println "  Downloads:  " downloads)
+    (println "  Assets:     " assets-obj)
+    (println "  Staging.org:" staging-org)
+    (scan-and-stage-downloads downloads assets-obj staging-org)
+    (println "Done.")))
