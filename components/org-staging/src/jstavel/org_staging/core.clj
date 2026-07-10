@@ -5,7 +5,10 @@
    [clojure.java.shell :refer [sh]]
    [babashka.fs :as fs]
    [taoensso.timbre :as log]
-   [jstavel.fp.interface :as fp]))
+   [jstavel.fp.interface :as fp])
+  (:import
+   (java.time ZoneId LocalDateTime)
+   (java.time.format DateTimeFormatter)))
 
 (defn deterministic-sha256-path
   "Calculates a deterministic SHA-256 hash for a given file or directory path.
@@ -90,7 +93,104 @@
         (log/error e "Error building asset index for" assets-objects-root)
         {}))))
 
-;; --- Current Slice Implementation ---
+;; --- Metadata Extraction Helpers ---
+
+(def ^:private date-pattern #"\d{4}-\d{2}-\d{2}")
+
+(defn- extract-date-from-filename
+  "Extract YYYY-MM-DD date from filename.
+   '2026-07-07 16_53_06.mp3' -> '2026-07-07'
+   Returns 'N/A' if no date pattern found."
+  [^String filename]
+  (if-let [m (re-find date-pattern filename)]
+    m
+    "N/A"))
+
+(defn- ffprobe-value
+  "Run ffprobe for a single value. Returns trimmed output or nil on failure."
+  [^String file-path ^String entry]
+  (let [{:keys [exit out]} (sh "ffprobe" "-v" "error"
+                                "-show_entries" entry
+                                "-of" "csv=p=0"
+                                file-path)]
+    (when (zero? exit)
+      (not-empty (str/trim out)))))
+
+(defn- ffprobe-duration-mmss
+  "Read MP3 duration via ffprobe. Returns 'MM:SS' or 'N/A' on failure."
+  [^String file-path]
+  (if-let [dur-str (ffprobe-value file-path "format=duration")]
+    (try
+      (let [total-sec (Double/parseDouble dur-str)
+            minutes   (long (quot total-sec 60))
+            seconds   (long (rem total-sec 60))]
+        (format "%02d:%02d" minutes seconds))
+      (catch NumberFormatException _
+        "N/A"))
+    "N/A"))
+
+(defn- ffprobe-bitrate
+  "Read MP3 bitrate via ffprobe. Returns e.g. '128k' or 'N/A' on failure."
+  [^String file-path]
+  (if-let [br-str (ffprobe-value file-path "stream=bit_rate")]
+    (str (quot (Long/parseLong br-str) 1000) "k")
+    "N/A"))
+
+(defn- filesize-bytes
+  "Return file size in bytes as a formatted string, or 'N/A'."
+  [^java.nio.file.Path file]
+  (try
+    (str (fs/size file))
+    (catch Exception _
+      "N/A")))
+
+(defn- duration-minutes-ceil
+  "Convert 'MM:SS' to ceiling minutes. '04:45' -> 5."
+  [^String mmss]
+  (if (= mmss "N/A")
+    0
+    (try
+      (let [[_ m s] (re-find #"(\d+):(\d+)" mmss)
+            total-sec (+ (* (Long/parseLong m) 60) (Long/parseLong s))]
+        (int (Math/ceil (/ total-sec 60.0))))
+      (catch Exception _
+        0))))
+
+(defn- logbook-timestamp
+  "Generate a LOGBOOK timestamp in local timezone.
+   Example: '[2026-07-08 Tue 15:30] Auto-detected by Staging Worker.'"
+  []
+  (let [formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd EEE HH:mm")
+        now       (LocalDateTime/now (ZoneId/systemDefault))]
+    (str "- [" (.format now formatter) "] Auto-detected by Staging Worker.")))
+
+(defn- generate-org-entry
+  "Build a complete staging.org entry from enriched metadata."
+  [{:keys [hash source-path filename created duration-mmss bitrate filesize kind logbook-line]}]
+  (let [headline (str "* TODO " (when (pos? (duration-minutes-ceil duration-mmss))
+                                  (str "[" (duration-minutes-ceil duration-mmss) " min] "))
+                       filename)]
+    (str headline "\n"
+         "  :PROPERTIES:\n"
+         "  :HASH:       " hash "\n"
+         "  :PLAUD-ID:   \n"
+         "  :CREATED:    " created "\n"
+         "  :DURATION:   " duration-mmss "\n"
+         "  :BITRATE:    " bitrate "\n"
+         "  :FILESIZE:   " filesize "\n"
+         "  :SOURCE:     " source-path "\n"
+         "  :SYNOPSIS:   \n"
+         "  :CLEANUP:\n"
+         "  :KIND:       " kind "\n"
+         "  :END:\n"
+         "  :DECISION:\n"
+         "  - [ ] INGEST  (Move to assets/objects/UUID/)\n"
+         "  - [ ] REJECT  (Delete from Downloads)\n"
+         "  - [ ] IGNORE  (Keep in Downloads, remove from TODO)\n"
+         "  :END:\n"
+         "  :LOGBOOK:\n"
+         "  " logbook-line "\n"
+         "  :END:")))
 
 (defn read-staging-org
   "Parses the local `staging.org` file and extracts the `:HASH:` property
@@ -137,9 +237,10 @@
       (throw e))))
 
 (defn scan-and-stage-downloads
-  "Scans the `downloads-path` for new `.mp3` files, calculates their hashes,
-   and appends `TODO` entries to `staging.org` for new, not-yet-ingested files.
-   This function adheres to a read-only invariant for `downloads-path`."
+  "Scans the `downloads-path` for new `.mp3` files, extracts metadata
+   (date from filename, duration/bitrate from ffprobe, hash from content),
+   and appends enriched TODO entries to `staging.org` with Decision drawer
+   and LOGBOOK."
   [^java.nio.file.Path downloads-path ^java.nio.file.Path assets-objects-root ^java.nio.file.Path staging-org-path]
   (log/info "Scanning downloads for new assets:" downloads-path)
   (let [audio-files (fp/list-audio-files downloads-path)
@@ -148,9 +249,10 @@
         pending-staging-hashes (read-staging-org staging-org-path)]
 
     (doseq [^java.nio.file.Path file mp3-files]
-      (let [file-hash (deterministic-sha256-path file)
-            filename (fs/file-name file)
-            source-path (str file)]
+      (let [file-hash   (deterministic-sha256-path file)
+            filename    (fs/file-name file)
+            source-path (str file)
+            file-path   (str file)]
         (cond
           (contains? ingested-asset-hashes file-hash)
           (log/info "Skipping already ingested file:" filename "(hash:" file-hash ")")
@@ -159,10 +261,17 @@
           (log/info "Skipping already pending file in staging.org:" filename "(hash:" file-hash ")")
 
           :else
-          (let [org-entry (str "* TODO " filename "\n"
-                               ":PROPERTIES:\n"
-                               ":HASH: " file-hash "\n"
-                               ":SOURCE: " source-path "\n"
-                               ":END:")]
-            (log/info "New .mp3 file found, adding to staging.org:" filename)
+          (let [metadata {:hash          file-hash
+                          :source-path   source-path
+                          :filename      filename
+                          :created       (extract-date-from-filename filename)
+                          :duration-mmss (ffprobe-duration-mmss file-path)
+                          :bitrate       (ffprobe-bitrate file-path)
+                          :filesize      (filesize-bytes file)
+                          :kind          (if (re-find date-pattern filename)
+                                           "Plaud-voice-record"
+                                           "audio-file")
+                          :logbook-line  (logbook-timestamp)}
+                org-entry (generate-org-entry metadata)]
+            (log/info "New" (:kind metadata) "found, adding to staging.org:" filename)
             (append-to-staging-org staging-org-path org-entry)))))))
