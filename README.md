@@ -60,3 +60,13 @@ To maintain strict visual alignment across the entire ecosystem (from terminal t
 
 ## Development
 This project strictly adheres to **Specification-Driven Development** (ADR 0002). Before invoking `aider`, always verify the current task scope and requirements in `docs/current_slice.md`.
+
+## Status (2026-10-22): PAUSED
+
+This project is **paused**, not abandoned. Per [ADR 0012](https://github.com/jstavel/gtd-org) ("One Workflow, Many Tools") in `~/org/docs/adr/`, tools are replaceable implementations of stable capabilities:
+
+- **Ingest / staging capabilities** (`org-staging` component) are superseded by [plaud-pipeline](../plaud-pipeline) (`~/dev/plaud-pipeline`, TypeScript): register in ledger (C2), same `ingest-ledger.org` ledger, same contracts, same workflow. The ledger bytes were never migrated — the replacement test passed by design.
+- **`plaud-downloader` remains the fallback / diagnostic path** for direct Plaud API access (reverse-engineered endpoints via Playwright CDP) while the primary inventory transport is the official Plaud MCP server.
+- The **10-second transcription preview** RFE (see `kanban.org`) was carried forward and re-specified as the `:SYNOPSIS:`-before-decision rule (ADR 0011) in the successor workflow.
+
+Declaration (ADR 0012 §3): Binds me: ADR 0011, ADR 0012. Capability: staging worker (superseded). Contracts: ledger entry `:HASH:`; flat Downloads scan (carried into successor).

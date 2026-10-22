@@ -40,3 +40,17 @@ projects/**/pom.xml
 .calva/repl.calva-repl
 
 .aider*
+
+# Tooling state (untracked since 2026-10-22 close-out)
+.clj-kondo/
+.lsp/
+.shadow-cljs/
+.vscode/
+node_modules/
+*.orig
+agents-list.json
+aa.html
+aa.txt
+bb.edn.orig
+CONTRIBUTING.orig.md
+AGENTS.md
